@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Book, Page, PageStatus, TextLayer
+from app.services import storage
 
 router = APIRouter()
 
@@ -53,7 +54,7 @@ def _page_dict(page: Page) -> dict:
         "prompt": page.prompt,
         "negative_prompt": page.negative_prompt,
         "status": page.status,
-        "image_path": f"/storage/{page.image_path}" if page.image_path else None,
+        "image_path": storage.public_url(page.image_path) if page.image_path else None,
         "image_dpi": page.image_dpi,
         "image_width_px": page.image_width_px,
         "image_height_px": page.image_height_px,
