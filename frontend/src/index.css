@@ -1,0 +1,216 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── DESIGN TOKENS (Tailwind v4 theme layer) ── */
+@theme inline {
+  /* Typography — system-UI stack matching mockup */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Fira Mono', monospace;
+
+  /* Semantic color aliases → CSS vars below */
+  --color-background:            var(--background);
+  --color-foreground:            var(--foreground);
+  --color-card:                  var(--card);
+  --color-card-foreground:       var(--card-foreground);
+  --color-popover:               var(--popover);
+  --color-popover-foreground:    var(--popover-foreground);
+  --color-primary:               var(--primary);
+  --color-primary-foreground:    var(--primary-foreground);
+  --color-secondary:             var(--secondary);
+  --color-secondary-foreground:  var(--secondary-foreground);
+  --color-muted:                 var(--muted);
+  --color-muted-foreground:      var(--muted-foreground);
+  --color-accent:                var(--accent);
+  --color-accent-foreground:     var(--accent-foreground);
+  --color-destructive:           var(--destructive);
+  --color-border:                var(--border);
+  --color-input:                 var(--input);
+  --color-ring:                  var(--ring);
+
+  /* Sidebar */
+  --color-sidebar:                      var(--sidebar);
+  --color-sidebar-foreground:           var(--sidebar-foreground);
+  --color-sidebar-primary:              var(--sidebar-primary);
+  --color-sidebar-primary-foreground:   var(--sidebar-primary-foreground);
+  --color-sidebar-accent:               var(--sidebar-accent);
+  --color-sidebar-accent-foreground:    var(--sidebar-accent-foreground);
+  --color-sidebar-border:               var(--sidebar-border);
+  --color-sidebar-ring:                 var(--sidebar-ring);
+
+  /* Status palette (used by Badge + PageCard) */
+  --color-status-green:         var(--status-green);
+  --color-status-green-bg:      var(--status-green-bg);
+  --color-status-blue:          var(--status-blue);
+  --color-status-blue-bg:       var(--status-blue-bg);
+  --color-status-yellow:        var(--status-yellow);
+  --color-status-yellow-bg:     var(--status-yellow-bg);
+  --color-status-red:           var(--status-red);
+  --color-status-red-bg:        var(--status-red-bg);
+  --color-status-purple:        var(--status-purple);
+  --color-status-purple-bg:     var(--status-purple-bg);
+  --color-status-gray:          var(--status-gray);
+  --color-status-gray-bg:       var(--status-gray-bg);
+
+  /* Chart */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Radius scale */
+  --radius-xs:  calc(var(--radius) * 0.4);
+  --radius-sm:  calc(var(--radius) * 0.6);
+  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Shadow tokens (from mockup) */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.1);
+}
+
+/* ── ROOT: Warm amber palette from mockup ── */
+:root {
+  /* Core backgrounds */
+  --background:          #f7f5f0;   /* --bg in mockup */
+  --foreground:          #1c1917;   /* --text-primary */
+
+  /* Card / surface */
+  --card:                #ffffff;   /* --surface */
+  --card-foreground:     #1c1917;
+
+  /* Popover */
+  --popover:             #ffffff;
+  --popover-foreground:  #1c1917;
+
+  /* Primary = accent amber */
+  --primary:             #b45309;   /* --accent */
+  --primary-foreground:  #ffffff;
+
+  /* Secondary = near-white */
+  --secondary:           #f7f5f0;
+  --secondary-foreground: #1c1917;
+
+  /* Muted */
+  --muted:               #f5f5f4;
+  --muted-foreground:    #78716c;   /* --text-secondary */
+
+  /* Accent (shadcn semantic — hover highlight) */
+  --accent:              #fef3c7;   /* --accent-light */
+  --accent-foreground:   #92400e;   /* --accent-hover */
+
+  /* Destructive */
+  --destructive:         #b91c1c;   /* --red */
+
+  /* Borders / inputs */
+  --border:              #e7e5e0;   /* --border */
+  --input:               #e7e5e0;
+  --ring:                #b45309;   /* focus ring = accent */
+
+  /* Radius base */
+  --radius: 0.625rem;
+
+  /* Sidebar — dark warm stone */
+  --sidebar:                    #1c1917;   /* --sidebar-bg */
+  --sidebar-foreground:         #d6d3cd;   /* --sidebar-text */
+  --sidebar-primary:            #b45309;   /* accent */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #292524;   /* --sidebar-active-bg */
+  --sidebar-accent-foreground:  #ffffff;   /* --sidebar-active */
+  --sidebar-border:             #292524;
+  --sidebar-ring:               #b45309;
+
+  /* Status palette (page workflow) */
+  --status-green:    #15803d;
+  --status-green-bg: #dcfce7;
+  --status-blue:     #1d4ed8;
+  --status-blue-bg:  #dbeafe;
+  --status-yellow:   #b45309;
+  --status-yellow-bg: #fef3c7;
+  --status-red:      #b91c1c;
+  --status-red-bg:   #fee2e2;
+  --status-purple:   #7c3aed;
+  --status-purple-bg: #ede9fe;
+  --status-gray:     #78716c;
+  --status-gray-bg:  #f5f5f4;
+
+  /* Extra brand tokens (direct use in components) */
+  --brand-accent:       #b45309;
+  --brand-accent-hover: #92400e;
+  --brand-accent-light: #fef3c7;
+  --text-muted:         #a8a29e;
+
+  /* Charts */
+  --chart-1: #b45309;
+  --chart-2: #1d4ed8;
+  --chart-3: #15803d;
+  --chart-4: #7c3aed;
+  --chart-5: #b91c1c;
+}
+
+/* ── DARK MODE (preserve structural tokens, re-map palette) ── */
+.dark {
+  --background:          #0c0a09;
+  --foreground:          #fafaf9;
+  --card:                #1c1917;
+  --card-foreground:     #fafaf9;
+  --popover:             #1c1917;
+  --popover-foreground:  #fafaf9;
+  --primary:             #d97706;
+  --primary-foreground:  #ffffff;
+  --secondary:           #292524;
+  --secondary-foreground: #fafaf9;
+  --muted:               #292524;
+  --muted-foreground:    #a8a29e;
+  --accent:              #44403c;
+  --accent-foreground:   #fef3c7;
+  --destructive:         #ef4444;
+  --border:              #292524;
+  --input:               #292524;
+  --ring:                #d97706;
+  --sidebar:             #0c0a09;
+  --sidebar-foreground:  #d6d3cd;
+  --sidebar-primary:     #d97706;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:      #1c1917;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border:      #1c1917;
+  --sidebar-ring:        #d97706;
+}
+
+/* ── BASE STYLES ── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus ring for keyboard nav */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Thin scrollbar (matches mockup) */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
