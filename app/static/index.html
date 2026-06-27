@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coloring Book Studio</title>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --sidebar-bg: #1c1917;
+    --sidebar-text: #d6d3cd;
+    --sidebar-active: #ffffff;
+    --sidebar-active-bg: #292524;
+    --accent: #b45309;
+    --accent-light: #fef3c7;
+    --accent-hover: #92400e;
+    --text-primary: #1c1917;
+    --text-secondary: #78716c;
+    --text-muted: #a8a29e;
+    --border: #e7e5e0;
+    --green: #15803d;
+    --green-light: #dcfce7;
+    --blue: #1d4ed8;
+    --blue-light: #dbeafe;
+    --red: #b91c1c;
+    --red-light: #fee2e2;
+    --yellow: #b45309;
+    --yellow-light: #fef3c7;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 14px;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px;
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid #292524;
+  }
+  .logo-mark { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-text { color: white; font-weight: 600; font-size: 15px; }
+  .logo-sub { color: var(--sidebar-text); font-size: 11px; opacity: 0.7; }
+  .sidebar-section { padding: 16px 10px 8px; }
+  .sidebar-section-label {
+    color: #57534e; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0 8px; margin-bottom: 4px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px;
+    cursor: pointer; color: var(--sidebar-text);
+    transition: all 0.15s; font-size: 13.5px;
+  }
+  .nav-item:hover { background: #292524; color: white; }
+  .nav-item.active { background: var(--sidebar-active-bg); color: var(--sidebar-active); font-weight: 500; }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align: center; opacity: 0.85; }
+  .sidebar-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid #292524; }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-sub { color: var(--text-muted); font-size: 13px; margin-left: 4px; }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn {
+    padding: 7px 14px; border-radius: 7px; font-size: 13px;
+    font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px; }
+  .content::-webkit-scrollbar { width: 5px; }
+  .content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ── VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── STATS ── */
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+  .stat-sub { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── CARDS ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-title { font-size: 14px; font-weight: 600; }
+  .section-link { font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 500; }
+
+  /* ── BOOKS LIST ── */
+  .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+  .book-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.12s;
+  }
+  .book-item:last-child { border-bottom: none; }
+  .book-item:hover { background: var(--bg); }
+  .book-thumb {
+    width: 42px; height: 54px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .book-info { flex: 1; min-width: 0; }
+  .book-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .book-meta { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+  .book-progress { width: 80px; flex-shrink: 0; text-align: right; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+  .progress-label { font-size: 11px; color: var(--text-muted); }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 7px; border-radius: 4px;
+    font-size: 11px; font-weight: 500;
+  }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+  .badge-yellow { background: var(--yellow-light); color: var(--yellow); }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-purple { background: var(--purple-light); color: var(--purple); }
+  .badge-gray { background: #f5f5f4; color: #78716c; }
+
+  /* ── RIGHT COLUMN ── */
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+  .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px; }
+  .quick-btn {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 10px; cursor: pointer; text-align: center;
+    transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .quick-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+  .quick-btn .qicon { font-size: 20px; }
+  .quick-btn .qlabel { font-size: 11.5px; font-weight: 500; color: var(--text-secondary); line-height: 1.3; }
+  .activity-item { display: flex; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .activity-text { font-size: 12.5px; line-height: 1.4; flex: 1; }
+  .activity-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ── PAGE GRID ── */
+  .pages-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; padding: 16px; }
+  .page-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.15s; }
+  .page-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .page-thumb {
+    height: 110px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border-bottom: 1px solid var(--border); overflow: hidden;
+  }
+  .page-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .page-thumb .placeholder { font-size: 32px; }
+  .page-info { padding: 8px 10px; }
+  .page-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── MODALS ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 14px;
+    padding: 28px; width: 520px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: 7px; font-size: 13px; font-family: inherit;
+    background: var(--bg); color: var(--text-primary); resize: vertical;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none; border-color: var(--accent); background: white;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── BOOK DETAIL VIEW ── */
+  .book-detail-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+  .book-detail-emoji { font-size: 40px; }
+  .book-detail-info h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .book-detail-info p { font-size: 13px; color: var(--text-secondary); }
+  .book-detail-actions { margin-left: auto; display: flex; gap: 8px; }
+  .status-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); transition: all 0.15s; }
+  .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* ── PAGE DETAIL ── */
+  .page-detail { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+  .page-image-wrap { position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-height: 300px; display: flex; align-items: center; justify-content: center; }
+  .page-image-wrap img { max-width: 100%; max-height: 500px; }
+  .page-image-placeholder { font-size: 60px; opacity: 0.3; }
+  .page-sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .page-status-track { display: flex; flex-direction: column; gap: 4px; }
+  .status-step { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .status-step.active { background: var(--accent-light); color: var(--accent); }
+  .status-step.done { color: var(--green); }
+  .status-step .sdot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  /* ── LOADING ── */
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 10; }
+  .loading-overlay .spin-lg { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+  /* ── TOAST ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+  .toast { background: #1c1917; color: white; padding: 10px 16px; border-radius: 8px; font-size: 13px; animation: slideIn 0.2s ease; max-width: 320px; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ── STYLE GUIDE FORM ── */
+  .sg-section { background: var(--bg); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .sg-section h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px; }
+  .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-option { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
+  .radio-option:hover { border-color: var(--accent); }
+  .radio-option input { display: none; }
+  .radio-option.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  /* misc */
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+  .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">🎨</div>
+      <div>
+        <div class="logo-text">CB Studio</div>
+        <div class="logo-sub">Coloring Book Studio</div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Workspace</div>
+    <div class="nav-item active" data-view="dashboard"><span class="icon">⊞</span> Dashboard</div>
+    <div class="nav-item" data-view="books"><span class="icon">📖</span> Book Projects</div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Production</div>
+    <div class="nav-item" data-view="queue"><span class="icon">⏳</span> Review Queue</div>
+    <div class="nav-item" data-view="export"><span class="icon">📦</span> Export Center</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="nav-item" id="nav-settings"><span class="icon">⚙️</span> Settings</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+      <span class="topbar-sub" id="topbar-sub"></span>
+    </div>
+    <div class="topbar-actions" id="topbar-actions">
+      <button class="btn btn-primary" onclick="openNewBookModal()">＋ New Book</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD VIEW -->
+    <div class="view active" id="view-dashboard">
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active Books</div>
+          <div class="stat-value" id="stat-books">—</div>
+          <div class="stat-sub" id="stat-books-sub">Loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Pages</div>
+          <div class="stat-value" id="stat-pages">—</div>
+          <div class="stat-sub" id="stat-pages-sub">Loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Approved Pages</div>
+          <div class="stat-value" id="stat-approved">—</div>
+          <div class="stat-sub">Ready for export</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <div class="section-header">
+              <div class="section-title">Book Projects</div>
+              <a class="section-link" onclick="showView('books')">View all →</a>
+            </div>
+            <div class="card" id="dash-books-list">
+              <div class="empty-state"><div class="empty-icon">📖</div><p>No books yet</p></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-header">
+              <div class="section-title">Needs Review</div>
+              <a class="section-link" onclick="showView('queue')">Open queue →</a>
+            </div>
+            <div class="card" id="dash-review-list">
+              <div class="empty-state"><div class="empty-icon">✅</div><p>Nothing pending review</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="right-col">
+          <div>
+            <div class="section-header"><div class="section-title">Quick Actions</div></div>
+            <div class="card">
+              <div class="quick-actions">
+                <div class="quick-btn" onclick="openNewBookModal()"><div class="qicon">📖</div><div class="qlabel">New Book</div></div>
+                <div class="quick-btn" onclick="showView('queue')"><div class="qicon">🔍</div><div class="qlabel">Review Queue</div></div>
+                <div class="quick-btn" onclick="showView('books')"><div class="qicon">📋</div><div class="qlabel">All Books</div></div>
+                <div class="quick-btn" onclick="showView('export')"><div class="qicon">📦</div><div class="qlabel">Export PDF</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKS VIEW -->
+    <div class="view" id="view-books">
+      <div id="books-list-wrap">
+        <div class="card" id="books-list">
+          <div class="empty-state"><div class="empty-icon">📖</div><p>No books yet — create one to get started.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOK DETAIL VIEW -->
+    <div class="view" id="view-book-detail">
+      <div class="book-detail-header">
+        <div class="book-detail-emoji" id="bd-emoji">📖</div>
+        <div class="book-detail-info">
+          <h1 id="bd-title">Book Title</h1>
+          <p id="bd-meta">0 pages · 0% done</p>
+        </div>
+        <div class="book-detail-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openStyleGuideModal()">🎨 Style Guide</button>
+          <button class="btn btn-secondary btn-sm" onclick="openAddPageModal()">＋ Add Page</button>
+          <button class="btn btn-primary btn-sm" onclick="exportCurrentBook()">📦 Export PDF</button>
+        </div>
+      </div>
+      <div class="status-filters" id="bd-filters">
+        <div class="filter-btn active" data-status="all" onclick="filterPages('all')">All</div>
+        <div class="filter-btn" data-status="idea" onclick="filterPages('idea')">💭 Idea</div>
+        <div class="filter-btn" data-status="prompt" onclick="filterPages('prompt')">✏️ Prompt</div>
+        <div class="filter-btn" data-status="generated" onclick="filterPages('generated')">🖼 Generated</div>
+        <div class="filter-btn" data-status="review" onclick="filterPages('review')">🔍 Review</div>
+        <div class="filter-btn" data-status="revision" onclick="filterPages('revision')">🔄 Revision</div>
+        <div class="filter-btn" data-status="approved" onclick="filterPages('approved')">✅ Approved</div>
+        <div class="filter-btn" data-status="print_ready" onclick="filterPages('print_ready')">🖨 Print Ready</div>
+      </div>
+      <div class="pages-grid" id="bd-pages-grid">
+        <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🖼</div><p>No pages yet</p></div>
+      </div>
+    </div>
+
+    <!-- PAGE DETAIL VIEW -->
+    <div class="view" id="view-page-detail">
+      <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-secondary btn-sm" id="back-to-book">← Back</button>
+        <span id="pd-breadcrumb" style="font-size:13px;color:var(--text-muted)"></span>
+      </div>
+      <div class="page-detail">
+        <div>
+          <div class="page-image-wrap" id="pd-image-wrap">
+            <div class="page-image-placeholder">🖼</div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;" id="pd-actions"></div>
+        </div>
+        <div class="page-sidebar">
+          <div class="card" style="padding:16px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:10px;">Status</div>
+            <div class="page-status-track" id="pd-status-track"></div>
+          </div>
+          <div class="card" style="padding:16px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:10px;">Concept</div>
+            <div id="pd-concept" style="font-size:13px;color:var(--text-primary);line-height:1.5;"></div>
+          </div>
+          <div class="card" style="padding:16px;" id="pd-prompt-card" style="display:none;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:10px;">AI Prompt</div>
+            <div id="pd-prompt" style="font-size:11.5px;color:var(--text-secondary);line-height:1.6;word-break:break-word;"></div>
+          </div>
+          <div class="card" style="padding:16px;" id="pd-notes-card">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:10px;">Print Check</div>
+            <div id="pd-print-notes" style="font-size:12px;color:var(--text-secondary);line-height:1.5;"></div>
+          </div>
+          <div class="card" style="padding:16px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-secondary);margin-bottom:10px;">Your Notes</div>
+            <textarea id="pd-leslie-notes" rows="3" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;" placeholder="Notes to yourself…"></textarea>
+            <button class="btn btn-secondary btn-sm" style="margin-top:6px;" onclick="savePageNotes()">Save Notes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVIEW QUEUE VIEW -->
+    <div class="view" id="view-queue">
+      <div class="section-header" style="margin-bottom:16px;">
+        <div class="section-title">Review Queue — Pages Waiting for Approval</div>
+      </div>
+      <div id="queue-list">
+        <div class="empty-state"><div class="empty-icon">✅</div><p>Nothing in the review queue</p></div>
+      </div>
+    </div>
+
+    <!-- EXPORT VIEW -->
+    <div class="view" id="view-export">
+      <div class="section-title" style="margin-bottom:16px;">Export Center</div>
+      <div id="export-books-list">
+        <div class="empty-state"><div class="empty-icon">📦</div><p>No books to export yet</p></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ═══════════ MODALS ═══════════ -->
+
+<!-- New Book Modal -->
+<div class="modal-overlay" id="modal-new-book">
+  <div class="modal">
+    <h2>📖 New Book Project</h2>
+    <div class="form-group">
+      <label>Title</label>
+      <input id="nb-title" type="text" placeholder="e.g. Botanical Serenity Vol. 3">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Emoji Icon</label>
+        <input id="nb-emoji" type="text" value="📖" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label>Target Pages</label>
+        <input id="nb-pages" type="number" value="30" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Theme / Concept</label>
+      <textarea id="nb-theme" rows="2" placeholder="What is this book about?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Target Audience</label>
+      <input id="nb-audience" type="text" placeholder="e.g. Adults, stress-relief, nature lovers">
+    </div>
+    <div class="form-group">
+      <label>Positioning (what makes it unique)</label>
+      <textarea id="nb-positioning" rows="2" placeholder="e.g. Loose botanical style, large white areas, meditative…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-new-book')">Cancel</button>
+      <button class="btn btn-primary" onclick="createBook()">Create Book →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Style Guide Modal -->
+<div class="modal-overlay" id="modal-style-guide">
+  <div class="modal">
+    <h2>🎨 Style Guide</h2>
+    <div class="sg-section">
+      <h3>Visual Style</h3>
+      <div class="form-group">
+        <label>Line Weight</label>
+        <div class="radio-group" id="sg-line-weight">
+          <label class="radio-option" data-val="thin"><input type="radio" name="lw" value="thin">Thin</label>
+          <label class="radio-option selected" data-val="medium"><input type="radio" name="lw" value="medium" checked>Medium</label>
+          <label class="radio-option" data-val="thick"><input type="radio" name="lw" value="thick">Thick (Bold)</label>
+          <label class="radio-option" data-val="varied"><input type="radio" name="lw" value="varied">Varied</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Detail Level</label>
+        <div class="radio-group" id="sg-detail-level">
+          <label class="radio-option" data-val="minimal"><input type="radio" name="dl" value="minimal">Minimal</label>
+          <label class="radio-option selected" data-val="moderate"><input type="radio" name="dl" value="moderate" checked>Moderate</label>
+          <label class="radio-option" data-val="intricate"><input type="radio" name="dl" value="intricate">Intricate</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>White Space</label>
+        <div class="radio-group" id="sg-white-space">
+          <label class="radio-option" data-val="minimal"><input type="radio" name="ws" value="minimal">Dense</label>
+          <label class="radio-option selected" data-val="balanced"><input type="radio" name="ws" value="balanced" checked>Balanced</label>
+          <label class="radio-option" data-val="generous"><input type="radio" name="ws" value="generous">Generous</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Recurring Motifs</label>
+        <input id="sg-motifs" type="text" placeholder="e.g. leaves, mandalas, vines, geometric borders">
+      </div>
+    </div>
+    <div class="sg-section">
+      <h3>Prompt Fragments (optional)</h3>
+      <div class="form-group">
+        <label>Always Add (prefix)</label>
+        <input id="sg-pos-prefix" type="text" placeholder="e.g. Japanese woodblock style,">
+      </div>
+      <div class="form-group">
+        <label>Always Add (suffix)</label>
+        <input id="sg-pos-suffix" type="text" placeholder="e.g. soft curves, organic forms">
+      </div>
+      <div class="form-group">
+        <label>Always Exclude (negative)</label>
+        <input id="sg-neg-prompt" type="text" placeholder="e.g. geometric, harsh lines, art deco">
+      </div>
+    </div>
+    <div class="sg-section">
+      <h3>Print Spec</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Trim Width (inches)</label>
+          <input id="sg-trim-w" type="number" value="8.5" step="0.25">
+        </div>
+        <div class="form-group">
+          <label>Trim Height (inches)</label>
+          <input id="sg-trim-h" type="number" value="11.0" step="0.25">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Bleed (inches)</label>
+          <input id="sg-bleed" type="number" value="0.125" step="0.0625">
+        </div>
+        <div class="form-group">
+          <label>Target DPI</label>
+          <select id="sg-dpi">
+            <option value="300">300 DPI</option>
+            <option value="600">600 DPI (printshop)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-style-guide')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStyleGuide()">Save Style Guide</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Page Modal -->
+<div class="modal-overlay" id="modal-add-page">
+  <div class="modal">
+    <h2>🖼 Add Page Idea</h2>
+    <div class="form-group">
+      <label>Page Concept</label>
+      <textarea id="ap-concept" rows="4" placeholder="Describe what should be on this coloring page. Be specific — e.g. 'A single large hibiscus flower with detailed stamens, surrounded by three smaller buds and curving leaves on thin stems. Fills most of the page with generous white space at the edges.'"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Sort Order (page number)</label>
+      <input id="ap-order" type="number" value="0" min="0">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-page')">Cancel</button>
+      <button class="btn btn-secondary" onclick="addPageOnly()">Save Idea</button>
+      <button class="btn btn-primary" onclick="addPageAndGenerate()">Save & Generate →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+const state = {
+  currentView: 'dashboard',
+  currentBookId: null,
+  currentPageId: null,
+  books: [],
+  pages: [],
+  pageFilter: 'all',
+};
+
+// ═══════════════════════════════════════
+// API
+// ═══════════════════════════════════════
+const api = {
+  async get(path) {
+    const r = await fetch(`/api${path}`);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async post(path, body) {
+    const r = await fetch(`/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async patch(path, body) {
+    const r = await fetch(`/api${path}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async put(path, body) {
+    const r = await fetch(`/api${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async delete(path) {
+    const r = await fetch(`/api${path}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+  },
+};
+
+// ═══════════════════════════════════════
+// TOASTS
+// ═══════════════════════════════════════
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+document.querySelectorAll('.nav-item[data-view]').forEach(el => {
+  el.addEventListener('click', () => showView(el.dataset.view));
+});
+
+function showView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`view-${view}`)?.classList.add('active');
+  document.querySelector(`.nav-item[data-view="${view}"]`)?.classList.add('active');
+  state.currentView = view;
+
+  const titles = { dashboard: 'Dashboard', books: 'Book Projects', queue: 'Review Queue', export: 'Export Center' };
+  document.getElementById('topbar-title').textContent = titles[view] || 'CB Studio';
+  document.getElementById('topbar-sub').textContent = '';
+
+  if (view === 'dashboard') loadDashboard();
+  if (view === 'books') loadBooksList();
+  if (view === 'queue') loadReviewQueue();
+  if (view === 'export') loadExportCenter();
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const books = await api.get('/books');
+    state.books = books;
+
+    document.getElementById('stat-books').textContent = books.length;
+    const totalPages = books.reduce((s, b) => s + b.page_count, 0);
+    const approvedPages = books.reduce((s, b) => s + b.approved_count, 0);
+    document.getElementById('stat-pages').textContent = totalPages;
+    document.getElementById('stat-approved').textContent = approvedPages;
+
+    const booksEl = document.getElementById('dash-books-list');
+    if (!books.length) {
+      booksEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><p>No books yet — create one to start.</p></div>';
+    } else {
+      booksEl.innerHTML = books.slice(0, 4).map(renderBookItem).join('');
+    }
+  } catch (e) {
+    toast('Failed to load dashboard: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════
+// BOOKS LIST
+// ═══════════════════════════════════════
+async function loadBooksList() {
+  try {
+    const books = await api.get('/books');
+    state.books = books;
+    const el = document.getElementById('books-list');
+    if (!books.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><p>No books yet.</p></div>';
+    } else {
+      el.innerHTML = books.map(renderBookItem).join('');
+    }
+  } catch (e) {
+    toast('Failed to load books', 'error');
+  }
+}
+
+function renderBookItem(book) {
+  const statusBadge = book.page_count === 0
+    ? '<span class="badge badge-gray">● Draft</span>'
+    : book.progress_pct >= 80
+      ? '<span class="badge badge-green">● In Production</span>'
+      : '<span class="badge badge-blue">● In Progress</span>';
+  return `
+    <div class="book-item" onclick="openBook('${book.id}')">
+      <div class="book-thumb" style="background:var(--accent-light);color:var(--accent);">${book.emoji}</div>
+      <div class="book-info">
+        <div class="book-title">${esc(book.title)}</div>
+        <div class="book-meta">${statusBadge}<span>${book.page_count} / ${book.target_page_count} pages</span></div>
+      </div>
+      <div class="book-progress">
+        <div class="progress-bar"><div class="progress-fill" style="width:${book.progress_pct}%"></div></div>
+        <div class="progress-label">${book.progress_pct}% done</div>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════
+// BOOK DETAIL
+// ═══════════════════════════════════════
+async function openBook(bookId) {
+  state.currentBookId = bookId;
+  try {
+    const [book, pages] = await Promise.all([
+      api.get(`/books/${bookId}`),
+      api.get(`/pages/book/${bookId}`),
+    ]);
+    state.pages = pages;
+
+    document.getElementById('bd-emoji').textContent = book.emoji;
+    document.getElementById('bd-title').textContent = book.title;
+    document.getElementById('bd-meta').textContent =
+      `${pages.length} pages · ${book.progress_pct}% done · ${book.approved_count} approved`;
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-book-detail').classList.add('active');
+    document.getElementById('topbar-title').textContent = book.title;
+    document.getElementById('topbar-sub').textContent = '';
+
+    renderPagesGrid();
+  } catch (e) {
+    toast('Failed to open book', 'error');
+  }
+}
+
+function renderPagesGrid() {
+  const el = document.getElementById('bd-pages-grid');
+  const filtered = state.pageFilter === 'all'
+    ? state.pages
+    : state.pages.filter(p => p.status === state.pageFilter);
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🖼</div><p>No pages ' + (state.pageFilter !== 'all' ? 'with this status' : 'yet') + '</p></div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(page => {
+    const thumb = page.image_path
+      ? `<img src="${esc(page.image_path)}" alt="page">`
+      : `<div class="placeholder">${statusEmoji(page.status)}</div>`;
+    return `
+      <div class="page-card" onclick="openPage('${page.id}')">
+        <div class="page-thumb">${thumb}</div>
+        <div class="page-info">
+          <div class="page-name">${esc(page.concept || 'Untitled')}</div>
+          <div>${statusBadge(page.status)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function filterPages(status) {
+  state.pageFilter = status;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  renderPagesGrid();
+}
+
+// ═══════════════════════════════════════
+// PAGE DETAIL
+// ═══════════════════════════════════════
+async function openPage(pageId) {
+  state.currentPageId = pageId;
+  try {
+    const page = await api.get(`/pages/${pageId}`);
+
+    // Image
+    const wrap = document.getElementById('pd-image-wrap');
+    if (page.image_path) {
+      wrap.innerHTML = `<img src="${esc(page.image_path)}" alt="coloring page">`;
+    } else {
+      wrap.innerHTML = '<div class="page-image-placeholder">🖼</div>';
+    }
+
+    // Concept
+    document.getElementById('pd-concept').textContent = page.concept || '—';
+    document.getElementById('pd-breadcrumb').textContent = `${page.concept || 'Page'}`;
+
+    // Prompt
+    if (page.prompt) {
+      document.getElementById('pd-prompt').textContent = page.prompt;
+      document.getElementById('pd-prompt-card').style.display = 'block';
+    }
+
+    // Print notes
+    document.getElementById('pd-print-notes').textContent = page.print_check_notes || 'Not checked yet';
+
+    // Leslie notes
+    document.getElementById('pd-leslie-notes').value = page.leslie_notes || '';
+
+    // Status track
+    renderStatusTrack(page.status);
+
+    // Actions
+    renderPageActions(page);
+
+    // Show view
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-page-detail').classList.add('active');
+    document.getElementById('topbar-title').textContent = page.concept || 'Page';
+
+    // Back button
+    document.getElementById('back-to-book').onclick = () => openBook(state.currentBookId);
+
+  } catch (e) {
+    toast('Failed to load page', 'error');
+  }
+}
+
+function renderStatusTrack(currentStatus) {
+  const steps = [
+    ['idea', '💭', 'Idea'],
+    ['prompt', '✏️', 'Prompt'],
+    ['generated', '🖼', 'Generated'],
+    ['review', '🔍', 'Review'],
+    ['revision', '🔄', 'Revision'],
+    ['approved', '✅', 'Approved'],
+    ['print_ready', '🖨', 'Print Ready'],
+    ['exported', '📦', 'Exported'],
+  ];
+  const order = steps.map(s => s[0]);
+  const cur = order.indexOf(currentStatus);
+
+  document.getElementById('pd-status-track').innerHTML = steps.map(([val, emoji, label], i) => {
+    const cls = i < cur ? 'done' : i === cur ? 'active' : '';
+    return `<div class="status-step ${cls}"><div class="sdot"></div>${emoji} ${label}</div>`;
+  }).join('');
+}
+
+function renderPageActions(page) {
+  const el = document.getElementById('pd-actions');
+  const btns = [];
+
+  if (!page.prompt || page.status === 'idea') {
+    btns.push(`<button class="btn btn-secondary btn-sm" onclick="previewPrompt()">👁 Preview Prompt</button>`);
+  }
+
+  if (['idea', 'prompt', 'revision', 'review', 'generated'].includes(page.status)) {
+    const isGenerating = false;
+    btns.push(`<button class="btn btn-primary btn-sm" id="gen-btn" onclick="generatePage()">✨ Generate Image</button>`);
+  }
+
+  if (page.status === 'review') {
+    btns.push(`<button class="btn btn-secondary btn-sm" style="background:var(--green-light);color:var(--green);border-color:var(--green);" onclick="approvePage()">✅ Approve</button>`);
+    btns.push(`<button class="btn btn-secondary btn-sm" style="background:var(--red-light);color:var(--red);border-color:var(--red);" onclick="requestRevision()">🔄 Request Revision</button>`);
+  }
+
+  if (page.status === 'approved') {
+    btns.push(`<button class="btn btn-secondary btn-sm" onclick="markPrintReady()">🖨 Mark Print Ready</button>`);
+  }
+
+  el.innerHTML = btns.join('');
+}
+
+async function generatePage() {
+  const btn = document.getElementById('gen-btn');
+  if (btn) btn.innerHTML = '<span class="spinner"></span> Generating…';
+  try {
+    const result = await api.post(`/generate/${state.currentPageId}`, { auto_threshold: true, auto_set_dpi: true });
+    toast('Image generated!', 'success');
+    await openPage(state.currentPageId);
+
+    if (!result.print_check.passed) {
+      toast('⚠️ Print check issues: ' + result.print_check.issues.join(', '), '');
+    }
+  } catch (e) {
+    toast('Generation failed: ' + e.message, 'error');
+    if (btn) btn.innerHTML = '✨ Generate Image';
+  }
+}
+
+async function previewPrompt() {
+  try {
+    const result = await api.get(`/generate/${state.currentPageId}/build-prompt`);
+    alert('POSITIVE:\n\n' + result.positive + '\n\nNEGATIVE:\n\n' + result.negative);
+  } catch (e) {
+    toast('Could not build prompt', 'error');
+  }
+}
+
+async function approvePage() {
+  try {
+    await api.patch(`/pages/${state.currentPageId}`, { status: 'approved' });
+    toast('Page approved!', 'success');
+    await openPage(state.currentPageId);
+  } catch (e) { toast('Failed', 'error'); }
+}
+
+async function requestRevision() {
+  try {
+    await api.patch(`/pages/${state.currentPageId}`, { status: 'revision' });
+    toast('Marked for revision', '');
+    await openPage(state.currentPageId);
+  } catch (e) { toast('Failed', 'error'); }
+}
+
+async function markPrintReady() {
+  try {
+    await api.patch(`/pages/${state.currentPageId}`, { status: 'print_ready' });
+    toast('Marked print-ready!', 'success');
+    await openPage(state.currentPageId);
+  } catch (e) { toast('Failed', 'error'); }
+}
+
+async function savePageNotes() {
+  const notes = document.getElementById('pd-leslie-notes').value;
+  try {
+    await api.patch(`/pages/${state.currentPageId}`, { leslie_notes: notes });
+    toast('Notes saved', 'success');
+  } catch (e) { toast('Failed to save notes', 'error'); }
+}
+
+// ═══════════════════════════════════════
+// REVIEW QUEUE
+// ═══════════════════════════════════════
+async function loadReviewQueue() {
+  try {
+    const books = await api.get('/books');
+    const reviewPages = [];
+    for (const book of books) {
+      const pages = await api.get(`/pages/book/${book.id}`);
+      pages.filter(p => p.status === 'review' || p.status === 'generated').forEach(p => {
+        reviewPages.push({ ...p, bookTitle: book.title, bookEmoji: book.emoji });
+      });
+    }
+
+    const el = document.getElementById('queue-list');
+    if (!reviewPages.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing pending review — great work!</p></div>';
+      return;
+    }
+
+    el.innerHTML = '<div class="card">' + reviewPages.map(p => `
+      <div class="book-item" onclick="openPageFromQueue('${p.book_id}', '${p.id}')">
+        <div class="book-thumb" style="background:var(--bg);overflow:hidden;">
+          ${p.image_path ? `<img src="${esc(p.image_path)}" style="width:100%;height:100%;object-fit:cover;">` : '🖼'}
+        </div>
+        <div class="book-info">
+          <div class="book-title">${esc(p.concept || 'Untitled')}</div>
+          <div class="book-meta">${p.bookEmoji} ${esc(p.bookTitle)} · ${statusBadge(p.status)}</div>
+        </div>
+        <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border:1px solid var(--green);margin-left:8px;" onclick="event.stopPropagation();quickApprove('${p.book_id}','${p.id}')">✅ Approve</button>
+      </div>`).join('') + '</div>';
+  } catch (e) {
+    toast('Failed to load queue', 'error');
+  }
+}
+
+async function openPageFromQueue(bookId, pageId) {
+  state.currentBookId = bookId;
+  await openPage(pageId);
+  document.getElementById('back-to-book').onclick = () => showView('queue');
+}
+
+async function quickApprove(bookId, pageId) {
+  try {
+    await api.patch(`/pages/${pageId}`, { status: 'approved' });
+    toast('Approved!', 'success');
+    loadReviewQueue();
+  } catch (e) { toast('Failed', 'error'); }
+}
+
+// ═══════════════════════════════════════
+// EXPORT CENTER
+// ═══════════════════════════════════════
+async function loadExportCenter() {
+  try {
+    const books = await api.get('/books');
+    const el = document.getElementById('export-books-list');
+    if (!books.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>No books yet.</p></div>';
+      return;
+    }
+    el.innerHTML = '<div class="card">' + books.map(b => `
+      <div class="book-item">
+        <div class="book-thumb" style="background:var(--accent-light);color:var(--accent);">${b.emoji}</div>
+        <div class="book-info">
+          <div class="book-title">${esc(b.title)}</div>
+          <div class="book-meta">${b.approved_count} approved pages ready</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="exportBook('${b.id}', this)" ${b.approved_count === 0 ? 'disabled style="opacity:0.4"' : ''}>📦 Export PDF</button>
+      </div>`).join('') + '</div>';
+  } catch (e) {
+    toast('Failed to load books', 'error');
+  }
+}
+
+async function exportBook(bookId, btn) {
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const r = await fetch(`/api/export/book/${bookId}/pdf`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'coloring-book.pdf'; a.click();
+    URL.revokeObjectURL(url);
+    toast('PDF exported!', 'success');
+    btn.innerHTML = '📦 Export PDF';
+  } catch (e) {
+    toast('Export failed: ' + e.message, 'error');
+    btn.innerHTML = '📦 Export PDF';
+  }
+}
+
+async function exportCurrentBook() {
+  const books = await api.get('/books');
+  const book = books.find(b => b.id === state.currentBookId);
+  if (!book || !book.approved_count) { toast('No approved pages to export', ''); return; }
+  const btn = document.createElement('button');
+  await exportBook(state.currentBookId, btn);
+}
+
+// ═══════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+function openNewBookModal() { openModal('modal-new-book'); }
+function openAddPageModal() { openModal('modal-add-page'); }
+
+async function createBook() {
+  const title = document.getElementById('nb-title').value.trim();
+  if (!title) { toast('Title is required', 'error'); return; }
+  try {
+    const book = await api.post('/books', {
+      title,
+      emoji: document.getElementById('nb-emoji').value || '📖',
+      target_page_count: parseInt(document.getElementById('nb-pages').value) || 30,
+      theme: document.getElementById('nb-theme').value,
+      audience: document.getElementById('nb-audience').value,
+      positioning: document.getElementById('nb-positioning').value,
+    });
+    closeModal('modal-new-book');
+    toast('Book created!', 'success');
+    await openBook(book.id);
+  } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+async function addPageOnly() {
+  const concept = document.getElementById('ap-concept').value.trim();
+  if (!concept) { toast('Concept is required', 'error'); return; }
+  try {
+    await api.post(`/pages/book/${state.currentBookId}`, {
+      concept,
+      sort_order: parseInt(document.getElementById('ap-order').value) || 0,
+    });
+    closeModal('modal-add-page');
+    toast('Page idea saved!', 'success');
+    await openBook(state.currentBookId);
+  } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+async function addPageAndGenerate() {
+  const concept = document.getElementById('ap-concept').value.trim();
+  if (!concept) { toast('Concept is required', 'error'); return; }
+  try {
+    const page = await api.post(`/pages/book/${state.currentBookId}`, {
+      concept,
+      sort_order: parseInt(document.getElementById('ap-order').value) || 0,
+    });
+    closeModal('modal-add-page');
+    state.currentPageId = page.id;
+    toast('Generating image…', '');
+    await openPage(page.id);
+    await generatePage();
+  } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// Style Guide modal
+function openStyleGuideModal() {
+  const book = state.books.find(b => b.id === state.currentBookId);
+  if (book?.style_guide) {
+    const sg = book.style_guide;
+    setRadio('sg-line-weight', sg.line_weight || 'medium');
+    setRadio('sg-detail-level', sg.detail_level || 'moderate');
+    setRadio('sg-white-space', sg.white_space || 'balanced');
+    document.getElementById('sg-motifs').value = sg.motifs || '';
+    document.getElementById('sg-pos-prefix').value = sg.positive_prefix || '';
+    document.getElementById('sg-pos-suffix').value = sg.positive_suffix || '';
+    document.getElementById('sg-neg-prompt').value = sg.negative_prompt || '';
+    document.getElementById('sg-trim-w').value = sg.trim_width_in || 8.5;
+    document.getElementById('sg-trim-h').value = sg.trim_height_in || 11.0;
+    document.getElementById('sg-bleed').value = sg.bleed_in || 0.125;
+    document.getElementById('sg-dpi').value = sg.target_dpi || 300;
+  }
+  openModal('modal-style-guide');
+}
+
+function setRadio(groupId, val) {
+  document.querySelectorAll(`#${groupId} .radio-option`).forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.val === val);
+  });
+}
+
+document.querySelectorAll('.radio-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const group = opt.closest('.radio-group');
+    group.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+  });
+});
+
+function getRadio(groupId) {
+  const sel = document.querySelector(`#${groupId} .radio-option.selected`);
+  return sel ? sel.dataset.val : null;
+}
+
+async function saveStyleGuide() {
+  try {
+    const sg = await api.put(`/books/${state.currentBookId}/style-guide`, {
+      line_weight: getRadio('sg-line-weight') || 'medium',
+      detail_level: getRadio('sg-detail-level') || 'moderate',
+      white_space: getRadio('sg-white-space') || 'balanced',
+      motifs: document.getElementById('sg-motifs').value,
+      positive_prefix: document.getElementById('sg-pos-prefix').value,
+      positive_suffix: document.getElementById('sg-pos-suffix').value,
+      negative_prompt: document.getElementById('sg-neg-prompt').value,
+      trim_width_in: parseFloat(document.getElementById('sg-trim-w').value) || 8.5,
+      trim_height_in: parseFloat(document.getElementById('sg-trim-h').value) || 11.0,
+      bleed_in: parseFloat(document.getElementById('sg-bleed').value) || 0.125,
+      margin_in: 0.5,
+      target_dpi: parseInt(document.getElementById('sg-dpi').value) || 300,
+    });
+    closeModal('modal-style-guide');
+    toast('Style guide saved!', 'success');
+    // Refresh book cache
+    const updated = await api.get(`/books/${state.currentBookId}`);
+    const idx = state.books.findIndex(b => b.id === state.currentBookId);
+    if (idx >= 0) state.books[idx] = updated;
+  } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function statusEmoji(s) {
+  const m = { idea:'💭', prompt:'✏️', generated:'🖼', review:'🔍', revision:'🔄', approved:'✅', print_ready:'🖨', exported:'📦' };
+  return m[s] || '●';
+}
+
+function statusBadge(s) {
+  const m = {
+    idea: 'badge-gray', prompt: 'badge-yellow', generated: 'badge-purple',
+    review: 'badge-blue', revision: 'badge-red', approved: 'badge-green',
+    print_ready: 'badge-green', exported: 'badge-gray',
+  };
+  return `<span class="badge ${m[s] || 'badge-gray'}">${statusEmoji(s)} ${s.replace('_',' ')}</span>`;
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+loadDashboard();
+</script>
+</body>
+</html>
