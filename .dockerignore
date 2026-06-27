@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+backend/.venv
+backend/.ruff_cache
+
+# Node artifacts
+frontend/node_modules
+frontend/dist
+
+# Local storage (ephemeral; use R2 in production)
+backend/storage
+storage
+
+# Test / dev
+backend/tests
+**/.env
+**/.env.*
+
+# Editor / OS
+.DS_Store
+**/.DS_Store
+.idea
+.vscode
+*.swp
+*.swo

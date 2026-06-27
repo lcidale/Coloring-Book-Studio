@@ -1,8 +1,14 @@
+# nixpacks.toml — fallback if railway.toml builder is switched back to nixpacks.
+# Primary deployment now uses the Dockerfile (builder = "dockerfile" in railway.toml).
+
 [phases.setup]
-nixPkgs = ["python39", "python39Packages.pip"]
+nixPkgs = ["python312", "python312Packages.pip"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt greenlet"]
+cmds = [
+  "pip install uv",
+  "uv sync --frozen --no-dev --no-install-project --directory backend",
+]
 
 [start]
-cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "uv run --directory backend uvicorn app.main:app --host 0.0.0.0 --port $PORT"

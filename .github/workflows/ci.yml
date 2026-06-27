@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ── Frontend job ───────────────────────────────────────────────────────────────
+
+jobs:
+  frontend:
+    name: "Frontend — tsc + build + vitest"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "latest"
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: TypeScript check (tsc --noEmit)
+        run: pnpm --dir frontend exec tsc --noEmit
+
+      - name: Build
+        run: pnpm --dir frontend build
+
+      - name: Unit tests (vitest)
+        run: pnpm --dir frontend test
+
+# ── Backend job ────────────────────────────────────────────────────────────────
+
+  backend:
+    name: "Backend — pytest"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Cache uv virtualenv
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/pyproject.toml', 'backend/uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install backend dependencies
+        run: uv sync --directory backend --dev
+
+      - name: Run pytest
+        run: uv run --directory backend pytest -x -q
+        env:
+          # Stub out provider keys — tests should not need real credentials
+          REPLICATE_API_TOKEN: ""
+          OPENAI_API_KEY: ""
+
+# ── E2E job (optional, author-only — browsers not installed in CI by default) ──
+
+  e2e-lint:
+    name: "E2E — author/type-check only"
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "latest"
+          run_install: false
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: Type-check E2E specs via tsc
+        # playwright.config.ts and e2e/ are not included in tsconfig.app.json
+        # (they are node scripts), so we compile them with node resolution directly.
+        run: |
+          pnpm --dir frontend exec tsc \
+            --noEmit \
+            --module esnext \
+            --moduleResolution bundler \
+            --target es2023 \
+            --lib es2023 \
+            --strict \
+            --skipLibCheck \
+            frontend/playwright.config.ts \
+            frontend/e2e/core-loop.spec.ts

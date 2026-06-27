@@ -1,0 +1,77 @@
+version: "3.9"
+
+# ── Services ──────────────────────────────────────────────────────────────────
+services:
+
+  # ── Postgres with pgvector extension ──────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_PASSWORD: studio
+      POSTGRES_DB: coloring_book
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studio -d coloring_book"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI backend (serves frontend dist from app/static/) ───────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # ── Database ──────────────────────────────────────────────────────────
+      DATABASE_URL: postgresql+asyncpg://studio:studio@db:5432/coloring_book
+
+      # ── Storage backend — set to "r2" in production ───────────────────────
+      # When STORAGE_BACKEND=local the app writes to ./storage (ephemeral in
+      # containers — use R2 for anything persistent).
+      STORAGE_BACKEND: local          # override: r2
+
+      # ── Cloudflare R2 (required when STORAGE_BACKEND=r2) ─────────────────
+      R2_ACCOUNT_ID: ""               # your Cloudflare account ID
+      R2_ACCESS_KEY_ID: ""            # R2 API token → Access Key ID
+      R2_SECRET_ACCESS_KEY: ""        # R2 API token → Secret Access Key
+      R2_BUCKET: ""              # e.g. coloring-book-studio
+      R2_PUBLIC_BASE_URL: ""               # e.g. https://pub-xxx.r2.dev
+
+      # ── AI providers ──────────────────────────────────────────────────────
+      MISTRAL_API_KEY: ""             # Mistral OCR / text extraction
+      GEMINI_API_KEY: ""              # Google Gemini image generation
+      REPLICATE_API_TOKEN: ""         # Replicate models (optional)
+
+      # ── App ───────────────────────────────────────────────────────────────
+      PORT: "${PORT:-8000}"
+
+    volumes:
+      # Mount local storage only when running with STORAGE_BACKEND=local
+      - storage_local:/app/storage
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+  storage_local:
+
+# ── Usage notes ────────────────────────────────────────────────────────────────
+# Local dev:
+#   docker compose up --build
+#   App is at http://localhost:8000
+#
+# Production (Railway / any container host):
+#   - Set STORAGE_BACKEND=r2 and fill in all R2_* vars.
+#   - Railway disk is ephemeral — do NOT rely on local storage there.
+#   - Use Neon (or Railway Postgres addon) for DATABASE_URL in production.
+#   - Provide MISTRAL_API_KEY, GEMINI_API_KEY, REPLICATE_API_TOKEN as secrets.

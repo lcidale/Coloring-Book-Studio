@@ -1,8 +1,29 @@
+# Railway deployment configuration
+# The service is built with nixpacks but the Dockerfile is preferred for
+# fully-reproducible builds — switch builder = "dockerfile" to use it.
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/api/books"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
+
+# ── Railway environment notes ──────────────────────────────────────────────────
+# Railway disk is EPHEMERAL — uploaded files are lost on redeploy.
+# Required for persistent storage:
+#   STORAGE_BACKEND=r2
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#   R2_BUCKET, R2_PUBLIC_BASE_URL
+#
+# Required for the database:
+#   DATABASE_URL  →  use Neon (postgresql+asyncpg://...) or Railway Postgres addon
+#                    (Railway Postgres addon URL uses ?sslmode=require; asyncpg
+#                     accepts postgresql+asyncpg://...?ssl=require)
+#
+# AI provider secrets (set in Railway → Variables):
+#   MISTRAL_API_KEY
+#   GEMINI_API_KEY
+#   REPLICATE_API_TOKEN
