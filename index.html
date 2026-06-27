@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coloring Book Studio</title>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --accent: #b45309;
+    --accent-hover: #92400e;
+    --accent-light: #fef3c7;
+    --text-primary: #1c1917;
+    --text-secondary: #57534e;
+    --text-muted: #a8a29e;
+    --border: #e7e5e0;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  header p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 480px;
+    line-height: 1.6;
+    margin: 0 auto;
+  }
+
+  /* ── CARD GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 680px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--accent-light);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  .card-link {
+    margin-top: auto;
+    padding-top: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .card:hover .card-link {
+    color: var(--accent-hover);
+  }
+
+  .card-link::after {
+    content: '→';
+    transition: transform 0.15s ease;
+  }
+
+  .card:hover .card-link::after {
+    transform: translateX(3px);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 56px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <p class="eyebrow">AI-Assisted Creative Production</p>
+    <h1>Coloring Book Studio</h1>
+    <p>A digital studio for non-artists who want to create, manage, and publish professional adult coloring books with AI-assisted workflows.</p>
+  </header>
+
+  <main>
+    <nav class="grid" aria-label="Studio tools">
+
+      <a href="coloring-book-studio.html" class="card">
+        <div class="card-icon" aria-hidden="true">🎨</div>
+        <h2>Studio Dashboard</h2>
+        <p>Manage book projects, orchestrate AI agents, and move pages through the full creation pipeline from concept to export.</p>
+        <span class="card-link">Open Studio</span>
+      </a>
+
+      <a href="coloring-book-workflow.html" class="card">
+        <div class="card-icon" aria-hidden="true">⚙️</div>
+        <h2>Production Workflow</h2>
+        <p>Step-by-step production workflow covering research, style guides, page generation, critique, revision, and publishing prep.</p>
+        <span class="card-link">Open Workflow</span>
+      </a>
+
+    </nav>
+  </main>
+
+  <footer>
+    <p>Coloring Book Studio &mdash; AI-powered creative production for independent publishers</p>
+  </footer>
+
+</body>
+</html>
