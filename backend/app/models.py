@@ -197,6 +197,26 @@ class GenerationJob(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
 
+class AppSettings(Base):
+    """
+    Global, single-row application settings.
+
+    Holds the *global* image provider + model used for generation when a call
+    does not pass an explicit provider/model.  Exactly one row exists; it is
+    created on first access via the get-or-create helper in routers/settings.py
+    with values seeded from the IMAGE_PROVIDER / model env defaults.
+    """
+    __tablename__ = "app_settings"
+
+    # Fixed sentinel primary key — there is only ever one settings row.
+    id: Mapped[str] = mapped_column(String, primary_key=True, default="global")
+
+    image_provider: Mapped[str] = mapped_column(String(50), default="replicate")
+    image_model: Mapped[str] = mapped_column(String(200), default="")
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
 class PageEmbedding(Base):
     """
     Semantic embedding for a Page (concept + prompt text).

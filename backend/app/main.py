@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.database import init_db
-from app.routers import books, pages, generate, export, dashboard, jobs, documents
+from app.routers import books, pages, generate, export, dashboard, jobs, documents, settings
 
 STATIC_DIR = Path(__file__).parent / "static"
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
@@ -40,6 +40,7 @@ app.include_router(jobs.router, prefix="/api", tags=["jobs"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
+app.include_router(settings.router, prefix="/api", tags=["settings"])
 
 # Serve generated images locally; on R2 the public URL points at the bucket instead.
 if STORAGE_BACKEND == "local":

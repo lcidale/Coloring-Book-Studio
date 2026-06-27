@@ -158,6 +158,7 @@ async def _generate(
         book_id=page.book_id,
         page_id=page_id,
         version=version_num,
+        db=db,  # resolve provider+model from the global AppSettings
     )
     abs_path = STORAGE_DIR / rel_path
 

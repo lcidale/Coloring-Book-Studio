@@ -72,6 +72,7 @@ async def generate_page(
             book_id=page.book_id,
             page_id=page_id,
             version=version_num,
+            db=db,  # resolve provider+model from the global AppSettings
         )
     except Exception as exc:
         raise HTTPException(502, f"Image generation failed: {exc}")
