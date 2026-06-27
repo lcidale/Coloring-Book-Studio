@@ -5,8 +5,10 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
+# No startCommand: defer to the Dockerfile CMD, which runs through `sh -c` so
+# Railway's $PORT is expanded by a shell. A startCommand here is passed without
+# shell expansion, so `$PORT` arrives literally and uvicorn rejects it.
 [deploy]
-startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/api/books"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
