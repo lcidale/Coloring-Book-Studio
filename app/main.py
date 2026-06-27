@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.database import init_db
-from app.routers import books, pages, generate, export
+from app.routers import books, pages, generate, export, dashboard
 
 STATIC_DIR = Path(__file__).parent / "static"
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
@@ -36,6 +36,7 @@ app.include_router(books.router, prefix="/api/books", tags=["books"])
 app.include_router(pages.router, prefix="/api/pages", tags=["pages"])
 app.include_router(generate.router, prefix="/api/generate", tags=["generate"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 
 # Serve generated images
 app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
