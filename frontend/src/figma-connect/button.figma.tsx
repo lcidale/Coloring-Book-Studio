@@ -1,59 +1,23 @@
-/**
- * Figma Code Connect — Button
- *
- * TODO: Replace the placeholder URL below with the real Figma component URL.
- * How to get it:
- *   1. Open your Figma design file.
- *   2. Right-click the Button component in the Assets panel (or on canvas).
- *   3. Choose "Copy link to component".
- *   4. Paste it here, e.g.:
- *      https://www.figma.com/design/FILEKEYHERE/Coloring-Book-Studio?node-id=123-456
- *
- * After updating the URL, run:
- *   pnpm figma:connect
- * (requires FIGMA_ACCESS_TOKEN env var — generate one at figma.com/settings → Personal access tokens)
- */
-
 import figma from "@figma/code-connect"
 import { Button } from "@/components/ui/button"
 
-// TODO: replace URL — needs real Figma file key + Button component node-id
+// Figma component: Button ComponentSet — file mC044MH1WirZ5Hzh2PILML, node 4:7
+// Variants: Variant=Primary (amber, default) | Variant=Secondary (outline)
 const FIGMA_BUTTON_URL =
-  "https://www.figma.com/design/TODO_FILE_KEY/Coloring-Book-Studio?node-id=TODO-BUTTON"
+  "https://www.figma.com/design/mC044MH1WirZ5Hzh2PILML/Coloring-Book-Studio--Design-System?node-id=4-7"
 
 figma.connect(Button, FIGMA_BUTTON_URL, {
   props: {
-    /**
-     * Map the Figma "Variant" property to the React variant prop.
-     * Adjust the Figma property name ("Variant") to match what your file uses.
-     */
     variant: figma.enum("Variant", {
-      Default:     "default",
-      Outline:     "outline",
-      Secondary:   "secondary",
-      Ghost:       "ghost",
-      Destructive: "destructive",
-      Link:        "link",
+      Primary:   "default",
+      Secondary: "outline",
     }),
-
-    /**
-     * Map the Figma "Size" property to the React size prop.
-     */
-    size: figma.enum("Size", {
-      Default: "default",
-      XS:      "xs",
-      SM:      "sm",
-      LG:      "lg",
-      Icon:    "icon",
-    }),
-
-    /** The button label text node. Adjust "Label" to match your Figma layer name. */
     children: figma.string("Label"),
   },
 
-  example({ variant, size, children }) {
+  example({ variant, children }) {
     return (
-      <Button variant={variant} size={size}>
+      <Button variant={variant}>
         {children}
       </Button>
     )
