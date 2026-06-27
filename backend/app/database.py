@@ -20,10 +20,17 @@ IS_POSTGRES: bool = bool(_DATABASE_URL and _DATABASE_URL.startswith("postgresql"
 
 if IS_POSTGRES:
     # Neon requires SSL; pass sslmode via connect_args so asyncpg picks it up.
+    # Neon's serverless tier closes idle connections server-side, leaving stale
+    # entries in the pool. pool_pre_ping tests (and transparently replaces) a
+    # connection before each use; pool_recycle drops connections older than the
+    # idle window. Together these prevent the "connection is closed" error on the
+    # first request after an idle period.
     engine = create_async_engine(
         _DATABASE_URL,
         echo=False,
         connect_args={"ssl": "require"},
+        pool_pre_ping=True,
+        pool_recycle=300,
     )
 else:
     engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}", echo=False)
