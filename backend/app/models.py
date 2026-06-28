@@ -214,6 +214,11 @@ class AppSettings(Base):
     image_provider: Mapped[str] = mapped_column(String(50), default="replicate")
     image_model: Mapped[str] = mapped_column(String(200), default="")
 
+    concept_provider: Mapped[str] = mapped_column(String(50), default="")
+    concept_model: Mapped[str] = mapped_column(String(200), default="")
+    prompt_provider: Mapped[str] = mapped_column(String(50), default="")
+    prompt_model: Mapped[str] = mapped_column(String(200), default="")
+
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
 

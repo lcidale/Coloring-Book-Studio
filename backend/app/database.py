@@ -51,6 +51,12 @@ class Base(DeclarativeBase):
 _COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
     "page_versions": {"svg_path": "VARCHAR"},
     "text_layers": {"text_anchor": "VARCHAR(20) DEFAULT 'middle'"},
+    "app_settings": {
+        "concept_provider": "VARCHAR DEFAULT ''",
+        "concept_model": "VARCHAR DEFAULT ''",
+        "prompt_provider": "VARCHAR DEFAULT ''",
+        "prompt_model": "VARCHAR DEFAULT ''",
+    },
 }
 
 
@@ -67,6 +73,26 @@ def _apply_column_migrations(conn) -> None:
                 conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
 
 
+def _apply_pg_column_migrations(conn) -> None:
+    """Run idempotent ADD COLUMN IF NOT EXISTS migrations (Postgres only).
+
+    Postgres supports ``ALTER TABLE … ADD COLUMN IF NOT EXISTS`` so each
+    statement is safe to run against an existing table that already has the
+    column.  This is needed because SQLAlchemy's ``create_all`` never adds
+    columns to tables that already exist — without this, new columns would be
+    missing from the live Neon app_settings table and settings reads would 500.
+    """
+    for table, columns in _COLUMN_MIGRATIONS.items():
+        for col, _ddl in columns.items():
+            # Strip any SQLite-isms from the DDL and emit a clean Postgres type.
+            # All migrations in _COLUMN_MIGRATIONS that target Postgres are plain
+            # VARCHAR with an optional DEFAULT, which Postgres accepts as-is.
+            # We always default to empty string to match the model defaults.
+            conn.exec_driver_sql(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} VARCHAR DEFAULT ''"
+            )
+
+
 def _ensure_vector_extension(conn) -> None:
     """Enable pgvector extension (Postgres only). Called inside begin() so DDL auto-commits."""
     conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
@@ -80,7 +106,12 @@ async def init_db():
             # Enable vector extension before create_all so Vector columns exist.
             await conn.run_sync(_ensure_vector_extension)
         await conn.run_sync(Base.metadata.create_all)
-        if not IS_POSTGRES:
+        if IS_POSTGRES:
+            # Additive column migrations for existing Postgres tables.
+            # create_all never adds columns to tables that already exist, so
+            # new columns must be applied explicitly after each schema change.
+            await conn.run_sync(_apply_pg_column_migrations)
+        else:
             # SQLite-only additive column migrations.
             await conn.run_sync(_apply_column_migrations)
 
