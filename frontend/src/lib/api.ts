@@ -25,6 +25,20 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res as unknown as T
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a page `image_path` to a usable <img> src.
+ *
+ * With STORAGE_BACKEND=r2 the backend returns a full absolute URL
+ * (https://…r2.dev/…). With local storage it returns a relative path that is
+ * served under /storage/. Prefixing an absolute URL with /storage/ breaks it,
+ * so pass absolute URLs through unchanged.
+ */
+export function pageImageSrc(imagePath: string): string {
+  return /^https?:\/\//i.test(imagePath) ? imagePath : `/storage/${imagePath}`
+}
+
 // ── Domain types ───────────────────────────────────────────────────────────────
 
 export interface StyleGuide {

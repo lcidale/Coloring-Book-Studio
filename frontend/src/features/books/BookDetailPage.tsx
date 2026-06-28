@@ -22,6 +22,7 @@ import {
   useCreatePage,
   useUpdateStyleGuide,
   exportBookPdf,
+  pageImageSrc,
   type PageStatus,
   type StyleGuide,
 } from "@/lib/api"
@@ -321,7 +322,7 @@ function PageGrid({
           <div className="flex h-[120px] items-center justify-center bg-[var(--muted)] text-4xl">
             {page.image_path ? (
               <img
-                src={`/storage/${page.image_path}`}
+                src={pageImageSrc(page.image_path)}
                 alt={page.concept}
                 className="h-full w-full object-cover"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}

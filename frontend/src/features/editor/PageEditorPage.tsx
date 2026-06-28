@@ -18,6 +18,7 @@ import {
   exportBookPdf,
   useCreateTextLayer,
   useDeleteTextLayer,
+  pageImageSrc,
   type PageStatus,
 } from "@/lib/api"
 
@@ -163,7 +164,7 @@ function ImagePreview({ imagePath, concept }: { imagePath: string | null; concep
   return (
     <div className="flex h-full items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--muted)]">
       <img
-        src={`/storage/${imagePath}`}
+        src={pageImageSrc(imagePath)}
         alt={concept}
         className="max-h-full max-w-full object-contain"
       />
