@@ -15,6 +15,8 @@ import {
   useUpdatePage,
   useGeneratePage,
   useJob,
+  useRefineConcept,
+  useWritePrompt,
   exportBookPdf,
   useCreateTextLayer,
   useDeleteTextLayer,
@@ -278,6 +280,47 @@ export function PageEditorPage() {
     if (page?.concept) setConceptDraft(page.concept)
   }, [page?.concept])
 
+  // AI action hooks
+  const refineConcept = useRefineConcept(pageId)
+  const writePrompt = useWritePrompt(pageId)
+
+  // AI proposal state (concept refinement review box)
+  const [conceptProposal, setConceptProposal] = React.useState<string | null>(null)
+
+  async function handleRefineConcept() {
+    try {
+      const result = await refineConcept.mutateAsync()
+      setConceptProposal(result.refined_concept)
+    } catch (err) {
+      toast.error(String(err))
+    }
+  }
+
+  async function handleAcceptConceptProposal() {
+    if (conceptProposal === null) return
+    try {
+      await updatePage.mutateAsync({ id: pageId, concept: conceptProposal })
+      setConceptProposal(null)
+      toast.success("Concept updated.")
+    } catch (err) {
+      toast.error(String(err))
+    }
+  }
+
+  function handleDiscardConceptProposal() {
+    setConceptProposal(null)
+  }
+
+  async function handleWritePrompt() {
+    try {
+      const result = await writePrompt.mutateAsync()
+      setPromptDraft(result.positive)
+      setEditingPrompt(true)
+    } catch (err) {
+      toast.error(String(err))
+    }
+  }
+
   async function setStatus(status: PageStatus) {
     try {
       await updatePage.mutateAsync({ id: pageId, status })
@@ -407,12 +450,22 @@ export function PageEditorPage() {
                 Concept
               </p>
               {!editingConcept && (
-                <button
-                  onClick={() => { setConceptDraft(page.concept ?? ""); setEditingConcept(true) }}
-                  className="text-[11px] text-[var(--brand-accent)] hover:underline"
-                >
-                  Edit
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleRefineConcept}
+                    disabled={refineConcept.isPending}
+                    aria-label="Refine concept with AI"
+                    className="text-[11px] text-[var(--brand-accent)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {refineConcept.isPending ? "Refining…" : "✨ Refine with AI"}
+                  </button>
+                  <button
+                    onClick={() => { setConceptDraft(page.concept ?? ""); setEditingConcept(true) }}
+                    className="text-[11px] text-[var(--brand-accent)] hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
               )}
             </div>
             {editingConcept ? (
@@ -437,6 +490,36 @@ export function PageEditorPage() {
               </div>
             ) : (
               <p className="text-[13.5px] text-[var(--foreground)] whitespace-pre-wrap">{page.concept}</p>
+            )}
+
+            {/* AI concept proposal review box */}
+            {conceptProposal !== null && (
+              <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  AI Proposal — Review before accepting
+                </p>
+                <p className="mb-3 text-[13px] text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                  {conceptProposal}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleAcceptConceptProposal}
+                    disabled={updatePage.isPending}
+                    aria-label="Accept AI concept proposal"
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDiscardConceptProposal}
+                    aria-label="Discard AI concept proposal"
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -512,12 +595,22 @@ export function PageEditorPage() {
                 Prompt
               </p>
               {!editingPrompt && (
-                <button
-                  onClick={() => { setPromptDraft(page.prompt ?? ""); setEditingPrompt(true) }}
-                  className="text-[11px] text-[var(--brand-accent)] hover:underline"
-                >
-                  Edit
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleWritePrompt}
+                    disabled={writePrompt.isPending}
+                    aria-label="Write prompt with AI"
+                    className="text-[11px] text-[var(--brand-accent)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {writePrompt.isPending ? "Writing…" : "✨ Write with AI"}
+                  </button>
+                  <button
+                    onClick={() => { setPromptDraft(page.prompt ?? ""); setEditingPrompt(true) }}
+                    className="text-[11px] text-[var(--brand-accent)] hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
               )}
             </div>
             {editingPrompt ? (
