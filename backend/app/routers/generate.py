@@ -54,7 +54,9 @@ async def generate_page(
 
     sg: StyleGuide | None = page.book.style_guide if page.book else None
     target_dpi = sg.target_dpi if sg else 300
-    positive, negative = build_prompt(page.concept, sg)
+    built = build_prompt(page.concept, sg)
+    positive = page.prompt or built[0]
+    negative = page.negative_prompt or built[1]
 
     # Save prompts on the page
     page.prompt = positive
