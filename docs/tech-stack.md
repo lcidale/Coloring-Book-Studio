@@ -68,3 +68,59 @@ The approved stack for the studio. Drives the refactor plan in `docs/plans/2026-
 - Generation: `REPLICATE_API_TOKEN` (+ existing image vars)
 
 Full template: `backend/.env.example`.
+
+---
+
+## Text LLM layer (Admin LLM Selection feature)
+
+### Provider abstraction
+
+`backend/app/services/text_providers.py` is a registry mirroring the image `providers.py` pattern. Currently registered providers:
+
+| Provider ID | Display name | SDK |
+|---|---|---|
+| `gemini` | Google Gemini | `google-genai` |
+| `claude` | Anthropic Claude | `anthropic` (new dep) |
+
+Each provider entry declares available models. The registry is exposed via `GET /api/text-providers` (returns list of `{id, name, models}`).
+
+`backend/app/services/text_gen.py` provides three async functions that dispatch to the correct provider SDK:
+
+| Function | Purpose |
+|---|---|
+| `complete(provider, model, prompt)` | Raw completion (internal utility) |
+| `refine_concept(provider, model, concept)` | Returns a refined concept string |
+| `write_prompt(provider, model, concept, style)` | Returns `{positive, negative}` prompt pair |
+
+### New + extended API endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/text-providers` | Returns text-LLM registry. |
+| `POST` | `/api/pages/{id}/refine-concept` | Returns `{refined_concept}`; does **not** save. 400 if provider not configured. |
+| `POST` | `/api/pages/{id}/write-prompt` | Returns `{positive, negative}`; does **not** save. 400 if provider not configured. |
+
+`GET /api/settings` and `PUT /api/settings` now also carry:
+
+| Field | Type | Notes |
+|---|---|---|
+| `concept_provider` / `concept_model` | string | Which text provider/model to use for concept refinement |
+| `prompt_provider` / `prompt_model` | string | Which text provider/model to use for prompt writing |
+| `image_configured` | bool | True when image provider credentials are present |
+| `concept_configured` | bool | True when the selected concept provider's API key is set |
+| `prompt_configured` | bool | True when the selected prompt provider's API key is set |
+
+Defaults: `concept_provider=gemini`, `concept_model=gemini-2.5-flash`, `prompt_provider=gemini`, `prompt_model=gemini-2.5-flash`.
+
+### Generation prompt authority
+
+`backend/app/services/jobs.py` / `generate.py`: a page's saved `prompt` and `negative_prompt` fields are now the authoritative source for image generation. The deterministic `build_prompt()` function is used as the fallback only when those fields are empty. The negative prompt safety rail (coloring-book-safe terms) remains hard-coded regardless of LLM output.
+
+### New dependency + env var
+
+| Item | Value |
+|---|---|
+| Python package | `anthropic` |
+| Env var | `ANTHROPIC_API_KEY` |
+
+Add `ANTHROPIC_API_KEY` to Railway env vars when using the Claude provider. Gemini provider continues to use the existing `GEMINI_API_KEY` / `GOOGLE_API_KEY`.

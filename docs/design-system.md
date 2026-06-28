@@ -512,7 +512,42 @@ There is no shared `<Input>` component. Form controls are styled inline wherever
 
 ---
 
-### 2.12 Tables
+### 2.12 ProviderModelSection (`frontend/src/features/settings/SettingsPage.tsx`)
+
+Reusable settings block for picking an AI provider + model. The Admin page (`/admin`) renders three identical instances: **Concept Model**, **Prompt Model**, and **Image Generation**.
+
+Each section contains:
+1. A labeled radio list of providers (styled per §4.5 — amber border + pale-amber background when selected)
+2. A `<select>` for the model (§2.11 select style), shown only when the provider supports multiple models
+3. A `<Badge>` indicating configuration state: `variant="green" dot` ("Configured") or `variant="yellow" dot` ("Not Configured")
+4. A Save button that follows the §4.3 dirty-state pattern — enabled only when `dirty && selectedProvider`
+
+Structure:
+
+```tsx
+<div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+  <div className="mb-4 flex items-center justify-between">
+    <div>
+      <h2 className="text-[15px] font-semibold text-[var(--foreground)]">{title}</h2>
+      <p className="text-[13px] text-[var(--muted-foreground)]">{description}</p>
+    </div>
+    <Badge variant={isConfigured ? "green" : "yellow"} dot>
+      {isConfigured ? "Configured" : "Not Configured"}
+    </Badge>
+  </div>
+  {/* Radio list — §4.5 pattern */}
+  {/* Model <select> — §2.11 pattern */}
+  <Button size="sm" disabled={!dirty || !selectedProvider || isPending} onClick={handleSave}>
+    {isPending ? "Saving…" : "Save"}
+  </Button>
+</div>
+```
+
+**Sidebar nav:** the Admin page is a `SidebarFooter` item at route `/admin` with icon `⚙️` label "Admin", replacing the former "Settings" item.
+
+---
+
+### 2.13 Tables
 
 No table component exists yet. When one is introduced, follow this standard and document it here:
 
@@ -527,7 +562,7 @@ When a table component is built, add its file path to §7.
 
 ---
 
-### 2.13 Alerts & Inline Messages
+### 2.14 Alerts & Inline Messages
 
 Two distinct patterns exist; use the right one for the context.
 
@@ -558,7 +593,7 @@ Use yellow panel for non-blocking contextual warnings that the user should read 
 
 ---
 
-### 2.14 Empty States
+### 2.15 Empty States
 
 Empty states follow a centered layout: large emoji/icon + title text + helper text + optional CTA button(s).
 
@@ -595,7 +630,7 @@ Rules:
 
 ---
 
-### 2.15 Loaders
+### 2.16 Loaders
 
 Three loading forms are used in the project; pick the right one for the context.
 
@@ -843,6 +878,38 @@ The Recent Activity panel uses small colored dots (6px circles) keyed on event `
 
 ---
 
+### 4.7 AI Action Button + Proposal/Review Pattern
+
+Used in `PageEditorPage.tsx` for AI-assisted text generation. Two variants:
+
+**Propose → review → accept/discard** (Concept Refine):
+1. "Refine with AI" button triggers `POST /api/pages/{id}/refine-concept`; button shows inline spinner and is disabled during the request.
+2. On success, a bordered review card appears below:
+   ```tsx
+   <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+     <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+       AI Suggestion
+     </p>
+     <p className="mb-3 text-[13px] text-[var(--foreground)]">{proposal}</p>
+     <div className="flex gap-2">
+       <Button size="sm" onClick={handleAccept}>Accept</Button>
+       <Button size="sm" variant="outline" onClick={handleDiscard}>Discard</Button>
+     </div>
+   </div>
+   ```
+3. **Accept** writes the proposal into the local field (no auto-save). **Discard** clears the card. Dirty-state save (§4.3) still applies — the user must explicitly save.
+
+**Pre-fill + edit** (Prompt Write):
+1. "Write with AI" button triggers `POST /api/pages/{id}/write-prompt`; button disabled + spinner during request.
+2. On success, the returned `{positive, negative}` values are written directly into the prompt editor fields for the user to review and edit before saving.
+3. No separate review card — the editor itself is the review surface.
+
+**Error handling:** both paths use `toast.error(…)` on failure (network error or 400 provider-not-configured). No inline error banner — this is a transient action, not a data-load failure. See §2.14 vs §4.1 for the distinction.
+
+**Tokens:** review card uses `rounded-xl border border-[var(--border)] bg-[var(--card)]`. The section label inside uses `text-[var(--muted-foreground)]` uppercase, matching the Print Check Notes panel style (§2.14).
+
+---
+
 ## 5. Accessibility Requirements
 
 ### 5.1 Focus Rings
@@ -998,4 +1065,6 @@ These decisions are final for the current product phase. Do not change them to m
 | App shell + route map + sidebar nav | `frontend/src/App.tsx` |
 | Page header / content-max-width pattern | `frontend/src/features/dashboard/DashboardPage.tsx`, `frontend/src/features/settings/SettingsPage.tsx` |
 | API client + `pageImageSrc` helper | `frontend/src/lib/api.ts` |
+| Admin page (ProviderModelSection — §2.12) | `frontend/src/features/settings/SettingsPage.tsx` |
+| Page Editor AI buttons + proposal card (§4.7) | `frontend/src/features/editor/PageEditorPage.tsx` |
 | Figma design file | https://www.figma.com/design/mC044MH1WirZ5Hzh2PILML |
