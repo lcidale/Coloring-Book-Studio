@@ -270,6 +270,14 @@ export function PageEditorPage() {
     if (page?.prompt) setPromptDraft(page.prompt)
   }, [page?.prompt])
 
+  // Concept edit state
+  const [editingConcept, setEditingConcept] = React.useState(false)
+  const [conceptDraft, setConceptDraft] = React.useState("")
+
+  React.useEffect(() => {
+    if (page?.concept) setConceptDraft(page.concept)
+  }, [page?.concept])
+
   async function setStatus(status: PageStatus) {
     try {
       await updatePage.mutateAsync({ id: pageId, status })
@@ -284,6 +292,16 @@ export function PageEditorPage() {
       await updatePage.mutateAsync({ id: pageId, prompt: promptDraft })
       setEditingPrompt(false)
       toast.success("Prompt saved.")
+    } catch (err) {
+      toast.error(String(err))
+    }
+  }
+
+  async function saveConcept() {
+    try {
+      await updatePage.mutateAsync({ id: pageId, concept: conceptDraft })
+      setEditingConcept(false)
+      toast.success("Concept saved. Click Generate Image to apply it.")
     } catch (err) {
       toast.error(String(err))
     }
@@ -384,10 +402,42 @@ export function PageEditorPage() {
 
           {/* Concept */}
           <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-              Concept
-            </p>
-            <p className="text-[13.5px] text-[var(--foreground)]">{page.concept}</p>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Concept
+              </p>
+              {!editingConcept && (
+                <button
+                  onClick={() => { setConceptDraft(page.concept ?? ""); setEditingConcept(true) }}
+                  className="text-[11px] text-[var(--brand-accent)] hover:underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingConcept ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  rows={10}
+                  value={conceptDraft}
+                  onChange={(e) => setConceptDraft(e.target.value)}
+                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--brand-accent)]"
+                />
+                <p className="text-[11px] text-[var(--muted-foreground)]">
+                  Editing the concept changes what the AI draws. Click <span className="font-medium">Generate Image</span> after saving to apply it.
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveConcept} disabled={updatePage.isPending || !conceptDraft.trim()}>
+                    Save
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingConcept(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[13.5px] text-[var(--foreground)] whitespace-pre-wrap">{page.concept}</p>
+            )}
           </div>
 
           {/* Print check notes */}
