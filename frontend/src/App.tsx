@@ -17,7 +17,7 @@
  *   /quality        → QualityCheckPlaceholder (U12)
  *   /export         → ExportCenterPlaceholder (U12)
  *   /print-prep     → PrintPrepPlaceholder (U12)
- *   /settings       → SettingsPage (U11)
+ *   /admin          → SettingsPage (U11/U8)
  */
 import {
   BrowserRouter,
@@ -138,7 +138,7 @@ function AppNav() {
       </SidebarSection>
 
       <SidebarFooter>
-        {navItem("⚙️", "Settings", "/settings")}
+        {navItem("⚙️", "Admin", "/admin")}
       </SidebarFooter>
     </AppSidebar>
   )
@@ -180,8 +180,8 @@ function Shell() {
           <Route path="/export" element={<ExportCenterPlaceholder />} />
           <Route path="/print-prep" element={<PrintPrepPlaceholder />} />
 
-          {/* Settings (U11) */}
-          <Route path="/settings" element={<SettingsPage />} />
+          {/* Admin (U11/U8) */}
+          <Route path="/admin" element={<SettingsPage />} />
 
           {/* Fallback */}
           <Route
