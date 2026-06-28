@@ -210,9 +210,12 @@ async def refine_concept_endpoint(page_id: str, db: AsyncSession = Depends(get_d
         )
 
     style_guide = page.book.style_guide if page.book else None
-    model = settings.concept_model or ""
+    model = settings.concept_model or text_providers.default_model(provider) or ""
 
-    refined = await text_gen.refine_concept(page.concept, style_guide, provider, model)
+    try:
+        refined = await text_gen.refine_concept(page.concept, style_guide, provider, model)
+    except Exception as exc:  # provider/SDK failure (e.g. invalid/expired key)
+        raise HTTPException(502, f"Concept provider '{provider}' request failed") from exc
     return {"refined_concept": refined}
 
 
@@ -245,9 +248,12 @@ async def write_prompt_endpoint(page_id: str, db: AsyncSession = Depends(get_db)
         )
 
     style_guide = page.book.style_guide if page.book else None
-    model = settings.prompt_model or ""
+    model = settings.prompt_model or text_providers.default_model(provider) or ""
 
-    positive = await text_gen.write_prompt(page.concept, style_guide, provider, model)
+    try:
+        positive = await text_gen.write_prompt(page.concept, style_guide, provider, model)
+    except Exception as exc:  # provider/SDK failure (e.g. invalid/expired key)
+        raise HTTPException(502, f"Prompt provider '{provider}' request failed") from exc
     _, negative = build_prompt(page.concept, style_guide)
     return {"positive": positive, "negative": negative}
 

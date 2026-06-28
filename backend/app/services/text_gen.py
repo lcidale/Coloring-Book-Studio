@@ -68,7 +68,9 @@ async def complete(
             model=model,
             contents=f"{system}\n\n{user}",
         )
-        return resp.text
+        # resp.text is Optional[str] (None on a safety/empty finish) — coalesce
+        # so the -> str contract holds and callers never get None.
+        return resp.text or ""
 
     if pid == "claude":
         if not text_providers.is_configured("claude"):
@@ -78,7 +80,13 @@ async def complete(
             )
         from anthropic import AsyncAnthropic  # lazy import
 
-        client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "Claude text provider is not configured: set "
+                "ANTHROPIC_API_KEY in the environment."
+            )
+        client = AsyncAnthropic(api_key=api_key)
         resp = await client.messages.create(
             model=model,
             max_tokens=2048,

@@ -52,6 +52,26 @@ async def get_or_create_settings(db: AsyncSession) -> AppSettings:
         db.add(settings)
         await db.commit()
         await db.refresh(settings)
+        return settings
+
+    # Existing row: backfill empty text-model fields. Rows created before this
+    # feature (or Postgres-migrated with DEFAULT '' columns) keep empty
+    # concept/prompt provider+model, which would otherwise send model="" to the
+    # LLM and 400 on partial settings updates. Seed real defaults once.
+    _dp = _text_providers.DEFAULT_PROVIDER
+    _dm = _text_providers.default_model(_dp) or ""
+    changed = False
+    if not settings.concept_provider:
+        settings.concept_provider, changed = _dp, True
+    if not settings.concept_model:
+        settings.concept_model, changed = _dm, True
+    if not settings.prompt_provider:
+        settings.prompt_provider, changed = _dp, True
+    if not settings.prompt_model:
+        settings.prompt_model, changed = _dm, True
+    if changed:
+        await db.commit()
+        await db.refresh(settings)
     return settings
 
 
@@ -172,7 +192,7 @@ async def update_settings(body: SettingsUpdate, db: AsyncSession = Depends(get_d
             if not _text_providers.is_valid_model(raw_cp, cm):
                 cm = _text_providers.default_model(raw_cp) or ""
 
-        settings.concept_provider = raw_cp
+        settings.concept_provider = raw_cp.strip().lower()
         settings.concept_model = cm
 
     # ── prompt provider / model ──────────────────────────────────────────────
@@ -198,7 +218,7 @@ async def update_settings(body: SettingsUpdate, db: AsyncSession = Depends(get_d
             if not _text_providers.is_valid_model(raw_pp, pm):
                 pm = _text_providers.default_model(raw_pp) or ""
 
-        settings.prompt_provider = raw_pp
+        settings.prompt_provider = raw_pp.strip().lower()
         settings.prompt_model = pm
 
     await db.commit()
