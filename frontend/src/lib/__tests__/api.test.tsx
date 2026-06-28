@@ -16,11 +16,15 @@ import {
   useGeneratePage,
   useDashboardStats,
   useDashboardActivity,
+  useTextProviders,
+  useRefineConcept,
+  useWritePrompt,
   type Book,
   type Page,
   type Job,
   type DashboardStats,
   type ActivityItem,
+  type Provider,
 } from '../api'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -120,6 +124,16 @@ const STATS: DashboardStats = {
 const ACTIVITY: ActivityItem[] = [
   { text: 'Page approved', kind: 'approved', when: '2m ago' },
   { text: 'Page generated', kind: 'generated', when: '5m ago' },
+]
+
+const PROVIDERS: Provider[] = [
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    models: [{ id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' }],
+    default_model: 'claude-3-5-haiku-20241022',
+    configured: true,
+  },
 ]
 
 // ── Setup ──────────────────────────────────────────────────────────────────────
@@ -325,5 +339,92 @@ describe('useDashboardActivity', () => {
       '/api/dashboard/activity?limit=5',
       expect.any(Object)
     )
+  })
+})
+
+// ── useTextProviders ───────────────────────────────────────────────────────────
+
+describe('useTextProviders', () => {
+  it('calls /api/text-providers and returns the providers array', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeResponse({ providers: PROVIDERS }))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useTextProviders(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].id).toBe('anthropic')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/text-providers',
+      expect.objectContaining({ headers: expect.any(Object) })
+    )
+  })
+
+  it('surfaces errors from the API', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeErrorResponse(500))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useTextProviders(), { wrapper })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toMatch(/500/)
+  })
+})
+
+// ── useRefineConcept ──────────────────────────────────────────────────────────
+
+describe('useRefineConcept', () => {
+  it('POSTs to /api/pages/:id/refine-concept and returns refined_concept', async () => {
+    const response = { refined_concept: 'A majestic bear fishing in a mountain stream' }
+    vi.mocked(fetch).mockResolvedValueOnce(makeResponse(response))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useRefineConcept('page-1'), { wrapper })
+
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data?.refined_concept).toBe('A majestic bear fishing in a mountain stream')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/pages/page-1/refine-concept',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('propagates API errors', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeErrorResponse(422, 'Unprocessable'))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useRefineConcept('page-1'), { wrapper })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toMatch(/422/)
+  })
+})
+
+// ── useWritePrompt ────────────────────────────────────────────────────────────
+
+describe('useWritePrompt', () => {
+  it('POSTs to /api/pages/:id/write-prompt and returns positive and negative', async () => {
+    const response = {
+      positive: 'a bear catching fish, coloring book style',
+      negative: 'color, shading, realistic',
+    }
+    vi.mocked(fetch).mockResolvedValueOnce(makeResponse(response))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useWritePrompt('page-1'), { wrapper })
+
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data?.positive).toBe('a bear catching fish, coloring book style')
+    expect(result.current.data?.negative).toBe('color, shading, realistic')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/pages/page-1/write-prompt',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('propagates API errors', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeErrorResponse(500, 'Server Error'))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useWritePrompt('page-2'), { wrapper })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toMatch(/500/)
   })
 })

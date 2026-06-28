@@ -185,6 +185,13 @@ export interface ProvidersResponse {
 export interface Settings {
   image_provider: string
   image_model: string
+  concept_provider: string
+  concept_model: string
+  prompt_provider: string
+  prompt_model: string
+  image_configured: boolean
+  concept_configured: boolean
+  prompt_configured: boolean
 }
 
 // ── Books ──────────────────────────────────────────────────────────────────────
@@ -450,6 +457,14 @@ export function useProviders() {
   })
 }
 
+export function useTextProviders() {
+  return useQuery<Provider[]>({
+    queryKey: ["text-providers"],
+    queryFn: () =>
+      apiFetch<ProvidersResponse>("/text-providers").then((r) => r.providers),
+  })
+}
+
 export function useSettings() {
   return useQuery<Settings>({
     queryKey: ["settings"],
@@ -465,5 +480,30 @@ export function useUpdateSettings() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["settings"] })
     },
+  })
+}
+
+// ── AI Actions ────────────────────────────────────────────────────────────────
+
+export interface RefinedConcept {
+  refined_concept: string
+}
+
+export function useRefineConcept(pageId: string) {
+  return useMutation<RefinedConcept, Error, void>({
+    mutationFn: () =>
+      apiFetch<RefinedConcept>(`/pages/${pageId}/refine-concept`, { method: "POST", body: JSON.stringify({}) }),
+  })
+}
+
+export interface WrittenPrompt {
+  positive: string
+  negative: string
+}
+
+export function useWritePrompt(pageId: string) {
+  return useMutation<WrittenPrompt, Error, void>({
+    mutationFn: () =>
+      apiFetch<WrittenPrompt>(`/pages/${pageId}/write-prompt`, { method: "POST", body: JSON.stringify({}) }),
   })
 }
