@@ -10,6 +10,9 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models import Book, Page, PageStatus, TextLayer
 from app.services import storage
+from app.services import text_gen, text_providers
+from app.services.prompt_builder import build_prompt
+from app.routers.settings import get_or_create_settings
 
 router = APIRouter()
 
@@ -154,6 +157,99 @@ async def delete_page(page_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Page not found")
     await db.delete(page)
     await db.commit()
+
+
+# ── AI text helpers (no-save) ─────────────────────────────────────────────────
+
+def _load_page_with_book(page_id: str):
+    """Return a SQLAlchemy select that eagerly loads Page + book.style_guide."""
+    return (
+        select(Page)
+        .options(
+            selectinload(Page.text_layers),
+            selectinload(Page.versions),
+            selectinload(Page.book).selectinload(Book.style_guide),
+        )
+        .where(Page.id == page_id)
+    )
+
+
+@router.post("/{page_id}/refine-concept")
+async def refine_concept_endpoint(page_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Propose a refined concept for the page WITHOUT persisting it.
+
+    Returns ``{"refined_concept": "<text>"}`` on success.
+    Raises 404 if the page does not exist.
+    Raises 400 if the concept provider is not configured.
+    """
+    result = await db.execute(_load_page_with_book(page_id))
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+
+    settings = await get_or_create_settings(db)
+    provider = settings.concept_provider or "gemini"
+
+    if not text_providers.is_configured(provider):
+        # Build a user-friendly message naming the missing key(s).
+        entry = text_providers.get_provider(provider)
+        if entry is None:
+            raise HTTPException(400, f"Concept provider '{provider}' is not configured")
+        # Look up required env key names from the raw catalogue via is_configured logic.
+        # text_providers exposes is_configured but not env_keys directly; compose the
+        # message from known patterns.
+        _key_hints = {
+            "claude": "ANTHROPIC_API_KEY",
+            "gemini": "GEMINI_API_KEY (or GOOGLE_API_KEY)",
+        }
+        key_hint = _key_hints.get(provider, "the required API key")
+        raise HTTPException(
+            400,
+            f"Concept provider '{provider}' is not configured — set {key_hint}",
+        )
+
+    style_guide = page.book.style_guide if page.book else None
+    model = settings.concept_model or ""
+
+    refined = await text_gen.refine_concept(page.concept, style_guide, provider, model)
+    return {"refined_concept": refined}
+
+
+@router.post("/{page_id}/write-prompt")
+async def write_prompt_endpoint(page_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Propose a positive + negative image prompt for the page WITHOUT persisting it.
+
+    Returns ``{"positive": "<text>", "negative": "<text>"}`` on success.
+    Raises 404 if the page does not exist.
+    Raises 400 if the prompt provider is not configured.
+    """
+    result = await db.execute(_load_page_with_book(page_id))
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+
+    settings = await get_or_create_settings(db)
+    provider = settings.prompt_provider or "gemini"
+
+    if not text_providers.is_configured(provider):
+        _key_hints = {
+            "claude": "ANTHROPIC_API_KEY",
+            "gemini": "GEMINI_API_KEY (or GOOGLE_API_KEY)",
+        }
+        key_hint = _key_hints.get(provider, "the required API key")
+        raise HTTPException(
+            400,
+            f"Prompt provider '{provider}' is not configured — set {key_hint}",
+        )
+
+    style_guide = page.book.style_guide if page.book else None
+    model = settings.prompt_model or ""
+
+    positive = await text_gen.write_prompt(page.concept, style_guide, provider, model)
+    _, negative = build_prompt(page.concept, style_guide)
+    return {"positive": positive, "negative": negative}
 
 
 # ── Text Layers ───────────────────────────────────────────────────────────────
