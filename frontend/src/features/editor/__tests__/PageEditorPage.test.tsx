@@ -152,7 +152,7 @@ function setupDefaultMocks() {
     data: [],
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof api.useVersions>)
+  } as unknown as ReturnType<typeof api.useVersions>)
 
   vi.mocked(api.useRestoreVersion).mockReturnValue(
     makeMutation() as ReturnType<typeof api.useRestoreVersion>
