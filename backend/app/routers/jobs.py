@@ -19,9 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import SessionLocal, get_db
+from typing import Optional
+
 from app.models import (
     Book,
     GenerationJob,
+    InspirationImage,
     JobStatus,
     Page,
     PageStatus,
@@ -41,6 +44,7 @@ router = APIRouter()
 class GenerateRequest(BaseModel):
     auto_cleanup: bool = True   # threshold/despeckle/trim/DPI after generation
     vectorize: bool = True      # trace cleaned raster to SVG
+    reference_image_id: Optional[str] = None
 
 
 def _job_dict(job: GenerationJob) -> dict:
@@ -69,6 +73,15 @@ async def enqueue_generation(
     if not page.concept:
         raise HTTPException(400, "Page has no concept — add a concept before generating")
 
+    # Resolve effective reference image synchronously (so bad overrides return 400 now)
+    effective_ref_id = body.reference_image_id or page.reference_image_id
+    reference_image_key = None
+    if effective_ref_id:
+        ref = await db.get(InspirationImage, effective_ref_id)
+        if ref is None or (ref.book_id is not None and ref.book_id != page.book_id):
+            raise HTTPException(400, "Reference image is not available for this page")
+        reference_image_key = ref.image_path
+
     job = GenerationJob(page_id=page_id, status=JobStatus.queued)
     db.add(job)
     await db.commit()
@@ -80,6 +93,7 @@ async def enqueue_generation(
         page_id,
         body.auto_cleanup,
         body.vectorize,
+        reference_image_key,
     )
     return {"job_id": job.id, "status": job.status.value}
 
@@ -97,6 +111,7 @@ async def _run_pipeline(
     page_id: str,
     auto_cleanup: bool,
     do_vectorize: bool,
+    reference_image_key: Optional[str] = None,
 ) -> None:
     """Run the generation pipeline in its own DB session (request session is gone)."""
     async with SessionLocal() as db:
@@ -108,7 +123,7 @@ async def _run_pipeline(
         await db.commit()
 
         try:
-            version_num = await _generate(db, page_id, auto_cleanup, do_vectorize)
+            version_num = await _generate(db, page_id, auto_cleanup, do_vectorize, reference_image_key)
             job.status = JobStatus.done
             job.result_version = version_num
             job.finished_at = datetime.utcnow()
@@ -128,6 +143,7 @@ async def _generate(
     page_id: str,
     auto_cleanup: bool,
     do_vectorize: bool,
+    reference_image_key: Optional[str] = None,
 ) -> int:
     """The actual pipeline. Returns the new version number."""
     result = await db.execute(
@@ -161,6 +177,7 @@ async def _generate(
         page_id=page_id,
         version=version_num,
         db=db,  # resolve provider+model from the global AppSettings
+        reference_image_key=reference_image_key,
     )
     abs_path = STORAGE_DIR / rel_path
 

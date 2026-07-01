@@ -55,3 +55,71 @@ async def test_clear_reference_with_null(client: AsyncClient):
     r = await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": None})
     assert r.status_code == 200
     assert r.json()["reference_image_id"] is None
+
+
+async def test_generate_uses_sticky_reference(client: AsyncClient, monkeypatch):
+    import app.routers.generate as gen_mod
+    captured = {}
+
+    async def fake_gla(*args, **kwargs):
+        captured["reference_image_key"] = kwargs.get("reference_image_key")
+        # return a real relative path with a file so downstream cleanup/analyse works
+        from pathlib import Path
+        rel = f"books/{kwargs['book_id']}/pages/{kwargs['page_id']}/v{kwargs['version']:03d}.png"
+        p = gen_mod.STORAGE_DIR / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        from tests.conftest import make_pure_bw_png
+        make_pure_bw_png(p)
+        return Path(rel)
+    monkeypatch.setattr(gen_mod, "generate_line_art", fake_gla)
+
+    book_id, page = await _book_page(client)
+    img = await _upload_inspiration(client, book_id=book_id)
+    await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": img["id"]})
+
+    r = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert r.status_code == 200
+    # the sticky reference's storage key was passed to generation
+    assert captured["reference_image_key"].startswith("inspiration/")
+
+
+async def test_generate_override_beats_sticky(client: AsyncClient, monkeypatch):
+    import app.routers.generate as gen_mod
+    captured = {}
+
+    async def fake_gla(*args, **kwargs):
+        captured["reference_image_key"] = kwargs.get("reference_image_key")
+        from pathlib import Path
+        rel = f"books/{kwargs['book_id']}/pages/{kwargs['page_id']}/v{kwargs['version']:03d}.png"
+        p = gen_mod.STORAGE_DIR / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        from tests.conftest import make_pure_bw_png
+        make_pure_bw_png(p)
+        return Path(rel)
+    monkeypatch.setattr(gen_mod, "generate_line_art", fake_gla)
+
+    book_id, page = await _book_page(client)
+    sticky = await _upload_inspiration(client, book_id=book_id)
+    override = await _upload_inspiration(client, book_id=book_id)
+    await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": sticky["id"]})
+
+    r = await client.post(
+        f"/api/generate/{page['id']}",
+        json={"auto_cleanup": False, "vectorize": False, "reference_image_id": override["id"]},
+    )
+    assert r.status_code == 200
+    # override key differs from sticky key
+    sticky_key = "inspiration/" + sticky["image_url"].rsplit("/inspiration/", 1)[1]
+    override_key = "inspiration/" + override["image_url"].rsplit("/inspiration/", 1)[1]
+    assert captured["reference_image_key"] == override_key != sticky_key
+
+
+async def test_generate_override_from_other_book_400(client: AsyncClient):
+    book_id, page = await _book_page(client)
+    other = (await client.post("/api/books", json={"title": "O"})).json()["id"]
+    bad = await _upload_inspiration(client, book_id=other)
+    r = await client.post(
+        f"/api/generate/{page['id']}",
+        json={"auto_cleanup": False, "vectorize": False, "reference_image_id": bad["id"]},
+    )
+    assert r.status_code == 400

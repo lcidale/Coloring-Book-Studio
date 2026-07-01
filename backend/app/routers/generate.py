@@ -10,8 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from typing import Optional
+
 from app.database import get_db
-from app.models import Book, Page, PageStatus, StyleGuide
+from app.models import Book, InspirationImage, Page, PageStatus, StyleGuide
 from app.services.prompt_builder import build_prompt
 from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
@@ -26,6 +28,7 @@ router = APIRouter()
 class GenerateRequest(BaseModel):
     auto_cleanup: bool = True   # threshold/despeckle/trim/DPI after generation
     vectorize: bool = True      # trace cleaned raster to SVG
+    reference_image_id: Optional[str] = None
 
 
 @router.post("/{page_id}")
@@ -67,6 +70,15 @@ async def generate_page(
     # Version number
     version_num = len(page.versions) + 1
 
+    # Resolve effective reference image
+    effective_ref_id = body.reference_image_id or page.reference_image_id
+    reference_image_key = None
+    if effective_ref_id:
+        ref = await db.get(InspirationImage, effective_ref_id)
+        if ref is None or (ref.book_id is not None and ref.book_id != page.book_id):
+            raise HTTPException(400, "Reference image is not available for this page")
+        reference_image_key = ref.image_path
+
     # Generate
     try:
         rel_path = await generate_line_art(
@@ -76,6 +88,7 @@ async def generate_page(
             page_id=page_id,
             version=version_num,
             db=db,  # resolve provider+model from the global AppSettings
+            reference_image_key=reference_image_key,
         )
     except Exception as exc:
         raise HTTPException(502, f"Image generation failed: {exc}")
