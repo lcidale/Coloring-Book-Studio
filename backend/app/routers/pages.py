@@ -59,6 +59,20 @@ class TextLayerIn(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _reference_url(page: Page) -> str | None:
+    img = getattr(page, "_reference_image", None)
+    return storage.public_url(img.image_path) if img and img.image_path else None
+
+
+async def _attach_reference(page: Page, db: AsyncSession) -> None:
+    """Load the page's reference InspirationImage onto page._reference_image (or None)."""
+    from app.models import InspirationImage
+    page._reference_image = (
+        await db.get(InspirationImage, page.reference_image_id)
+        if page.reference_image_id else None
+    )
+
+
 def _page_dict(page: Page) -> dict:
     return {
         "id": page.id,
@@ -81,6 +95,8 @@ def _page_dict(page: Page) -> dict:
         "updated_at": page.updated_at.isoformat(),
         "text_layers": [_tl_dict(tl) for tl in page.text_layers],
         "version_count": len(page.versions),
+        "reference_image_id": page.reference_image_id,
+        "reference_image_url": _reference_url(page),
     }
 
 
@@ -127,7 +143,10 @@ async def list_pages(book_id: str, db: AsyncSession = Depends(get_db)):
         .where(Page.book_id == book_id)
         .order_by(Page.sort_order)
     )
-    return [_page_dict(p) for p in result.scalars().all()]
+    pages = result.scalars().all()
+    for p in pages:
+        await _attach_reference(p, db)
+    return [_page_dict(p) for p in pages]
 
 
 @router.post("/book/{book_id}", status_code=201)
@@ -147,6 +166,7 @@ async def create_page(book_id: str, body: PageIn, db: AsyncSession = Depends(get
         .where(Page.id == page.id)
     )
     page = result.scalar_one()
+    await _attach_reference(page, db)
     return _page_dict(page)
 
 
@@ -175,6 +195,7 @@ async def get_page(page_id: str, db: AsyncSession = Depends(get_db)):
     page = result.scalar_one_or_none()
     if not page:
         raise HTTPException(404, "Page not found")
+    await _attach_reference(page, db)
     return _page_dict(page)
 
 
@@ -277,6 +298,7 @@ async def update_page(page_id: str, body: PageUpdate, db: AsyncSession = Depends
     page.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(page)
+    await _attach_reference(page, db)
     return _page_dict(page)
 
 

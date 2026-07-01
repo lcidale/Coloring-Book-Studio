@@ -49,7 +49,7 @@ class Base(DeclarativeBase):
 # This block is ONLY applied on the SQLite path.
 # ---------------------------------------------------------------------------
 _COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
-    "pages": {"title": "VARCHAR(200)"},
+    "pages": {"title": "VARCHAR(200)", "reference_image_id": "VARCHAR"},
     "page_versions": {
         "svg_path": "VARCHAR",
         "label": "VARCHAR(120)",

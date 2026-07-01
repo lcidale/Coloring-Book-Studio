@@ -116,6 +116,9 @@ class Page(Base):
     book_id: Mapped[str] = mapped_column(String, ForeignKey("books.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    reference_image_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("inspiration_images.id"), nullable=True
+    )
 
     # Concept
     concept: Mapped[str] = mapped_column(Text, default="")   # human-readable page idea
