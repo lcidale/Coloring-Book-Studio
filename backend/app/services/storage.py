@@ -105,6 +105,10 @@ def _local_exists(key: str) -> bool:
     return _local_abs(key).exists()
 
 
+def _local_delete(key: str) -> None:
+    _local_abs(key).unlink(missing_ok=True)
+
+
 def _local_public_url(key: str) -> str:
     # Normalise path separators to forward slash for URL safety.
     return "/storage/" + key.replace("\\", "/")
@@ -147,6 +151,10 @@ def _r2_exists(key: str) -> bool:
         if exc.response["Error"]["Code"] in ("404", "NoSuchKey"):
             return False
         raise
+
+
+def _r2_delete(key: str) -> None:
+    _get_s3_client().delete_object(Bucket=_R2_BUCKET, Key=key)
 
 
 def _r2_public_url(key: str) -> str:
@@ -195,6 +203,14 @@ def exists(key: str) -> bool:
         return _r2_exists(key)
     else:
         return _local_exists(key)
+
+
+def delete_object(key: str) -> None:
+    """Delete an object from storage. Idempotent (missing key is a no-op)."""
+    if STORAGE_BACKEND == "r2":
+        _r2_delete(key)
+    else:
+        _local_delete(key)
 
 
 def public_url(key: str) -> str:

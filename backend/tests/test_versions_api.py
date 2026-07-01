@@ -99,3 +99,34 @@ async def test_restore_unknown_version_404(client):
     _, page = await _make_book_and_page(client)
     r = await client.post(f"/api/pages/{page['id']}/versions/nope/restore")
     assert r.status_code == 404
+
+
+# ── Task 4: label/notes PATCH + delete-version endpoint ──────────────────────
+
+async def test_patch_version_label_and_notes(client):
+    _, page = await _make_book_and_page(client)
+    v1 = await _seed_version(page["id"], 1, "books/b/p/v001.png", "p1")
+    r = await client.patch(f"/api/pages/{page['id']}/versions/{v1}",
+                           json={"label": "too busy", "notes": "background cluttered"})
+    assert r.status_code == 200
+    assert r.json()["label"] == "too busy"
+    assert r.json()["notes"] == "background cluttered"
+
+
+async def test_delete_current_version_blocked(client):
+    _, page = await _make_book_and_page(client)
+    v1 = await _seed_version(page["id"], 1, "books/b/p/v001.png", "p1")
+    await client.post(f"/api/pages/{page['id']}/versions/{v1}/restore")  # v1 now current
+    r = await client.delete(f"/api/pages/{page['id']}/versions/{v1}")
+    assert r.status_code == 409
+
+
+async def test_delete_noncurrent_version_ok(client):
+    _, page = await _make_book_and_page(client)
+    v1 = await _seed_version(page["id"], 1, "books/b/p/v001.png", "p1")
+    v2 = await _seed_version(page["id"], 2, "books/b/p/v002.png", "p2")
+    await client.post(f"/api/pages/{page['id']}/versions/{v2}/restore")  # v2 current
+    r = await client.delete(f"/api/pages/{page['id']}/versions/{v1}")
+    assert r.status_code == 204
+    remaining = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    assert [v["id"] for v in remaining] == [v2]

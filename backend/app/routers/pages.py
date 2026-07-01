@@ -37,6 +37,11 @@ class PageUpdate(BaseModel):
     sort_order: Optional[int] = None
 
 
+class VersionUpdate(BaseModel):
+    label: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class TextLayerIn(BaseModel):
     label: str
     content: str = ""
@@ -192,6 +197,46 @@ async def list_versions(page_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Page not found")
     ordered = sorted(page.versions, key=lambda v: v.version_num, reverse=True)
     return [_version_dict(page, v) for v in ordered]
+
+
+@router.patch("/{page_id}/versions/{version_id}")
+async def update_version(page_id: str, version_id: str, body: VersionUpdate,
+                         db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Page).options(selectinload(Page.versions)).where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+    pv = next((v for v in page.versions if v.id == version_id), None)
+    if pv is None:
+        raise HTTPException(404, "Version not found")
+    for field, val in body.model_dump(exclude_none=True).items():
+        setattr(pv, field, val)
+    await db.commit()
+    await db.refresh(pv)
+    return _version_dict(page, pv)
+
+
+@router.delete("/{page_id}/versions/{version_id}", status_code=204)
+async def delete_version(page_id: str, version_id: str,
+                         db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Page).options(selectinload(Page.versions)).where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+    pv = next((v for v in page.versions if v.id == version_id), None)
+    if pv is None:
+        raise HTTPException(404, "Version not found")
+    if page.image_path and pv.image_path == page.image_path:
+        raise HTTPException(409, "Cannot delete the current version — restore another first")
+    for key in (pv.image_path, pv.svg_path):
+        if key:
+            storage.delete_object(key)
+    await db.delete(pv)
+    await db.commit()
 
 
 @router.patch("/{page_id}")
