@@ -98,6 +98,8 @@ const PAGE: Page = {
   image_height_px: null,
   is_pure_bw: null,
   print_check_notes: null,
+  reference_image_id: null,
+  reference_image_url: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
   text_layers: [],
@@ -432,7 +434,7 @@ describe('useWritePrompt', () => {
 
 // ── useVersions ───────────────────────────────────────────────────────────────
 
-import { useVersions, useInspiration } from '../api'
+import { useVersions, useInspiration, useUpdatePage } from '../api'
 
 describe('useInspiration', () => {
   beforeEach(() => {
@@ -447,6 +449,22 @@ describe('useInspiration', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.[0].id).toBe("i1")
     expect(fetch).toHaveBeenCalledWith("/api/inspiration?book_id=global", expect.anything())
+  })
+})
+
+describe("useUpdatePage reference", () => {
+  it("PATCHes reference_image_id", async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ id: "p1", book_id: "b1", reference_image_id: "i1" }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    ))
+    vi.stubGlobal("fetch", fetchMock)
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useUpdatePage(), { wrapper })
+    result.current.mutate({ id: "p1", reference_image_id: "i1" })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ reference_image_id: "i1" })
   })
 })
 

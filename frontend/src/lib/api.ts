@@ -110,6 +110,8 @@ export interface Page {
   image_height_px: number | null
   is_pure_bw: boolean | null
   print_check_notes: string | null
+  reference_image_id: string | null
+  reference_image_url: string | null
   created_at: string
   updated_at: string
   text_layers: TextLayer[]
@@ -328,7 +330,7 @@ export function useCreatePage(bookId: string) {
 
 export function useUpdatePage() {
   const qc = useQueryClient()
-  return useMutation<Page, Error, Partial<CreatePageInput> & { id: string; title?: string; status?: PageStatus; prompt?: string; negative_prompt?: string }>({
+  return useMutation<Page, Error, Partial<CreatePageInput> & { id: string; title?: string; status?: PageStatus; prompt?: string; negative_prompt?: string; reference_image_id?: string | null }>({
     mutationFn: ({ id, ...data }) =>
       apiFetch<Page>(`/pages/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: (page) => {
@@ -470,6 +472,7 @@ export function useJob(jobId: string | null) {
 export interface GenerateOptions {
   auto_cleanup?: boolean
   vectorize?: boolean
+  reference_image_id?: string | null
 }
 
 /**
