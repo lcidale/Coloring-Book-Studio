@@ -72,6 +72,9 @@ class Book(Base):
     pages: Mapped[List["Page"]] = relationship(
         "Page", back_populates="book", cascade="all, delete-orphan", order_by="Page.sort_order"
     )
+    inspiration_images: Mapped[List["InspirationImage"]] = relationship(
+        "InspirationImage", back_populates="book", cascade="all, delete-orphan"
+    )
 
 
 class StyleGuide(Base):
@@ -185,6 +188,19 @@ class PageVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     page: Mapped["Page"] = relationship("Page", back_populates="versions")
+
+
+class InspirationImage(Base):
+    """Reference / mood-board image. Global when book_id is NULL."""
+    __tablename__ = "inspiration_images"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    book_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("books.id"), nullable=True)
+    image_path: Mapped[str] = mapped_column(String)          # storage key: inspiration/<uuid>.<ext>
+    caption: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    book: Mapped[Optional["Book"]] = relationship("Book", back_populates="inspiration_images")
 
 
 class GenerationJob(Base):
