@@ -1,10 +1,26 @@
 /**
  * BookDetailPage — /books/:id route.
  * Shows page grid with status filters, style-guide dialog, add-page dialog.
+ * Supports drag-to-reorder (dnd-kit), per-card rename (inline edit), and delete.
  */
 import * as React from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,15 +33,37 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   useBook,
   usePages,
   useCreatePage,
+  useUpdatePage,
+  useDeletePage,
+  useReorderPages,
   useUpdateStyleGuide,
   exportBookPdf,
   pageImageSrc,
+  type Page,
   type PageStatus,
   type StyleGuide,
 } from "@/lib/api"
+import { pageDisplayName } from "./pageLabel"
+import { useQueryClient } from "@tanstack/react-query"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -263,6 +301,163 @@ function AddPageDialog({
   )
 }
 
+// ── Sortable Page Card ─────────────────────────────────────────────────────────
+
+function SortablePageCard({
+  page,
+  index,
+  bookId,
+  dragDisabled,
+  onClick,
+}: {
+  page: Page
+  index: number
+  bookId: string
+  dragDisabled: boolean
+  onClick: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: page.id, disabled: dragDisabled })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  const updatePage = useUpdatePage()
+  const deletePage = useDeletePage()
+
+  const [renaming, setRenaming] = React.useState(false)
+  const [renameValue, setRenameValue] = React.useState(page.title ?? "")
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+
+  function handleRenameSubmit() {
+    const trimmed = renameValue.trim()
+    if (trimmed !== (page.title ?? "")) {
+      updatePage.mutate({ id: page.id, title: trimmed || null as unknown as string })
+    }
+    setRenaming(false)
+  }
+
+  function handleRenameKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") handleRenameSubmit()
+    if (e.key === "Escape") setRenaming(false)
+  }
+
+  const label = pageDisplayName(page, index)
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group relative cursor-pointer overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)] transition-all duration-150 hover:border-[var(--brand-accent)]/40 hover:shadow-[var(--shadow-card-md)]"
+    >
+      {/* Drag handle area — covers thumbnail */}
+      <div
+        {...(!dragDisabled ? attributes : {})}
+        {...(!dragDisabled ? listeners : {})}
+        onClick={onClick}
+      >
+        {/* Thumbnail */}
+        <div className="flex h-[120px] items-center justify-center bg-[var(--muted)] text-4xl">
+          {page.image_path ? (
+            <img
+              src={pageImageSrc(page.image_path)}
+              alt={page.concept}
+              className="h-full w-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+            />
+          ) : (
+            STATUS_EMOJI[page.status]
+          )}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="px-3 py-2.5">
+        {renaming ? (
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={handleRenameSubmit}
+            onKeyDown={handleRenameKey}
+            onClick={(e) => e.stopPropagation()}
+            className="mb-1.5 w-full rounded border border-[var(--brand-accent)] bg-[var(--background)] px-1.5 py-0.5 text-[11.5px] font-medium text-[var(--foreground)] outline-none"
+          />
+        ) : (
+          <p
+            className="mb-1.5 line-clamp-2 text-[11.5px] font-medium leading-snug text-[var(--foreground)]"
+            onClick={onClick}
+          >
+            {label}
+          </p>
+        )}
+        <div className="flex items-center justify-between">
+          <Badge variant={STATUS_VARIANT[page.status]} dot>
+            {STATUS_LABEL[page.status]}
+          </Badge>
+
+          {/* ⋯ context menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="rounded px-1 py-0.5 text-[14px] leading-none text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                aria-label="Page actions"
+              >
+                ⋯
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setRenameValue(page.title ?? "")
+                  setRenaming(true)
+                }}
+              >
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setDeleteOpen(true)}
+                className="text-[var(--status-red)]"
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete page?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{label}" will be permanently removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                deletePage.mutate({ id: page.id, bookId })
+                setDeleteOpen(false)
+              }}
+              className="bg-[var(--status-red)] text-white hover:bg-[var(--status-red)]/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
 // ── Page Grid ──────────────────────────────────────────────────────────────────
 
 function PageGrid({
@@ -274,12 +469,48 @@ function PageGrid({
 }) {
   const { data: pages, isLoading, isError } = usePages(bookId)
   const navigate = useNavigate()
+  const reorderPages = useReorderPages(bookId)
+  const qc = useQueryClient()
+  const dragDisabled = filterStatus !== "all"
 
-  const filtered = React.useMemo(() => {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  // The full sorted page list (used for reordering)
+  const sortedPages = React.useMemo(() => {
     if (!pages) return []
-    if (filterStatus === "all") return pages
-    return pages.filter((p) => p.status === filterStatus)
-  }, [pages, filterStatus])
+    return [...pages].sort((a, b) => a.sort_order - b.sort_order)
+  }, [pages])
+
+  // Filtered view for display (may differ from full list when filter active)
+  const filtered = React.useMemo(() => {
+    if (filterStatus === "all") return sortedPages
+    return sortedPages.filter((p) => p.status === filterStatus)
+  }, [sortedPages, filterStatus])
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Reorder within the full sorted list, not just filtered
+    const oldIndex = sortedPages.findIndex((p) => p.id === active.id)
+    const newIndex = sortedPages.findIndex((p) => p.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newOrder = arrayMove(sortedPages, oldIndex, newIndex)
+    const newIds = newOrder.map((p) => p.id)
+
+    // Optimistic update: relabel instantly
+    const optimistic = newOrder.map((p, i) => ({ ...p, sort_order: i }))
+    qc.setQueryData(["pages", bookId], optimistic)
+
+    reorderPages.mutate(newIds, {
+      onError: () => {
+        // Revert on error
+        qc.setQueryData(["pages", bookId], pages)
+        toast.error("Failed to reorder pages.")
+      },
+    })
+  }
 
   if (isLoading) {
     return (
@@ -311,43 +542,32 @@ function PageGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-3 xl:grid-cols-4">
-      {filtered.map((page) => (
-        <div
-          key={page.id}
-          onClick={() => navigate(`/editor/${page.id}`)}
-          className="group relative cursor-pointer overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)] transition-all duration-150 hover:border-[var(--brand-accent)]/40 hover:shadow-[var(--shadow-card-md)]"
-        >
-          {/* Thumbnail */}
-          <div className="flex h-[120px] items-center justify-center bg-[var(--muted)] text-4xl">
-            {page.image_path ? (
-              <img
-                src={pageImageSrc(page.image_path)}
-                alt={page.concept}
-                className="h-full w-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
-              />
-            ) : (
-              STATUS_EMOJI[page.status]
-            )}
+    <div>
+      {dragDisabled && (
+        <p className="mb-3 text-[12px] text-[var(--muted-foreground)]">
+          Switch to All to reorder pages.
+        </p>
+      )}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sortedPages.map((p) => p.id)} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-3 gap-3 xl:grid-cols-4">
+            {filtered.map((page) => {
+              // Index in the full sorted list (drives the p.NN label)
+              const globalIndex = sortedPages.findIndex((p) => p.id === page.id)
+              return (
+                <SortablePageCard
+                  key={page.id}
+                  page={page}
+                  index={globalIndex}
+                  bookId={bookId}
+                  dragDisabled={dragDisabled}
+                  onClick={() => navigate(`/editor/${page.id}`)}
+                />
+              )
+            })}
           </div>
-
-          {/* Info */}
-          <div className="px-3 py-2.5">
-            <p className="mb-1.5 line-clamp-2 text-[11.5px] font-medium leading-snug text-[var(--foreground)]">
-              {page.concept}
-            </p>
-            <div className="flex items-center justify-between">
-              <Badge variant={STATUS_VARIANT[page.status]} dot>
-                {STATUS_LABEL[page.status]}
-              </Badge>
-              <span className="text-[10.5px] text-[var(--text-muted)]">
-                #{page.sort_order}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }
