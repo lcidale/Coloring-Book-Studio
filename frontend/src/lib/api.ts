@@ -99,6 +99,7 @@ export interface Page {
   id: string
   book_id: string
   sort_order: number
+  title: string | null
   concept: string
   status: PageStatus
   prompt: string | null
@@ -112,6 +113,23 @@ export interface Page {
   created_at: string
   updated_at: string
   text_layers: TextLayer[]
+}
+
+export interface PageVersion {
+  id: string
+  page_id: string
+  version_num: number
+  image_url: string | null
+  svg_url: string | null
+  prompt: string
+  label: string | null
+  notes: string | null
+  dpi: number | null
+  width_px: number | null
+  height_px: number | null
+  is_pure_bw: boolean | null
+  created_at: string | null
+  is_current: boolean
 }
 
 export type JobStatus = "queued" | "running" | "done" | "failed"
@@ -243,6 +261,14 @@ export function useUpdateBook() {
   })
 }
 
+export function useDeleteBook() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => apiFetch<void>(`/books/${id}`, { method: "DELETE" }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["books"] }) },
+  })
+}
+
 export function useBookStatusSummary(bookId: string) {
   return useQuery<StatusSummary>({
     queryKey: ["books", bookId, "status-summary"],
@@ -286,6 +312,7 @@ export function usePage(pageId: string) {
 export interface CreatePageInput {
   concept: string
   sort_order?: number
+  title?: string
 }
 
 export function useCreatePage(bookId: string) {
@@ -301,12 +328,74 @@ export function useCreatePage(bookId: string) {
 
 export function useUpdatePage() {
   const qc = useQueryClient()
-  return useMutation<Page, Error, Partial<CreatePageInput> & { id: string; status?: PageStatus; prompt?: string; negative_prompt?: string }>({
+  return useMutation<Page, Error, Partial<CreatePageInput> & { id: string; title?: string; status?: PageStatus; prompt?: string; negative_prompt?: string }>({
     mutationFn: ({ id, ...data }) =>
       apiFetch<Page>(`/pages/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: (page) => {
       void qc.invalidateQueries({ queryKey: ["pages", page.book_id] })
       void qc.invalidateQueries({ queryKey: ["pages", "detail", page.id] })
+    },
+  })
+}
+
+export function useDeletePage() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { id: string; bookId: string }>({
+    mutationFn: ({ id }) => apiFetch<void>(`/pages/${id}`, { method: "DELETE" }),
+    onSuccess: (_v, { bookId }) => { void qc.invalidateQueries({ queryKey: ["pages", bookId] }) },
+  })
+}
+
+export function useReorderPages(bookId: string) {
+  const qc = useQueryClient()
+  return useMutation<Page[], Error, string[]>({
+    mutationFn: (pageIds) =>
+      apiFetch<Page[]>(`/pages/book/${bookId}/reorder`, { method: "PATCH", body: JSON.stringify({ page_ids: pageIds }) }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["pages", bookId] }) },
+  })
+}
+
+// ── Versions ──────────────────────────────────────────────────────────────────
+
+export function useVersions(pageId: string) {
+  return useQuery<PageVersion[]>({
+    queryKey: ["versions", pageId],
+    queryFn: () => apiFetch<PageVersion[]>(`/pages/${pageId}/versions`),
+    enabled: !!pageId,
+  })
+}
+
+export function useRestoreVersion(pageId: string) {
+  const qc = useQueryClient()
+  return useMutation<Page, Error, string>({
+    mutationFn: (versionId) =>
+      apiFetch<Page>(`/pages/${pageId}/versions/${versionId}/restore`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: (page) => {
+      void qc.invalidateQueries({ queryKey: ["versions", pageId] })
+      void qc.invalidateQueries({ queryKey: ["pages", "detail", pageId] })
+      void qc.invalidateQueries({ queryKey: ["pages", page.book_id] })
+    },
+  })
+}
+
+export function useUpdateVersion(pageId: string) {
+  const qc = useQueryClient()
+  return useMutation<PageVersion, Error, { versionId: string; label?: string; notes?: string }>({
+    mutationFn: ({ versionId, ...data }) =>
+      apiFetch<PageVersion>(`/pages/${pageId}/versions/${versionId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["versions", pageId] })
+    },
+  })
+}
+
+export function useDeleteVersion(pageId: string) {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: (versionId) =>
+      apiFetch<void>(`/pages/${pageId}/versions/${versionId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["versions", pageId] })
     },
   })
 }

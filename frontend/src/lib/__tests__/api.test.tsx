@@ -87,6 +87,7 @@ const PAGE: Page = {
   id: 'page-1',
   book_id: 'book-1',
   sort_order: 1,
+  title: null,
   concept: 'A bear fishing',
   status: 'idea',
   prompt: null,
@@ -426,5 +427,32 @@ describe('useWritePrompt', () => {
     result.current.mutate()
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(result.current.error?.message).toMatch(/500/)
+  })
+})
+
+// ── useVersions ───────────────────────────────────────────────────────────────
+
+import { useVersions } from '../api'
+
+describe('useVersions', () => {
+  it('fetches versions for a page', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      makeResponse([{ id: 'v1', version_num: 1, is_current: true }])
+    )
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useVersions('p1'), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.[0].id).toBe('v1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/pages/p1/versions',
+      expect.objectContaining({ headers: expect.any(Object) })
+    )
+  })
+
+  it('is disabled when pageId is empty', () => {
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useVersions(''), { wrapper })
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
   })
 })
