@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -215,5 +215,10 @@ async def delete_book(book_id: str, db: AsyncSession = Depends(get_db)):
     for img in book.inspiration_images:
         if img.image_path:
             storage.delete_object(img.image_path)
+    # Null any page reference pointing at this book's inspiration images before the
+    # cascade delete, so the page→inspiration_image FK can't be violated by delete ordering.
+    await db.execute(
+        update(Page).where(Page.book_id == book_id).values(reference_image_id=None)
+    )
     await db.delete(book)
     await db.commit()

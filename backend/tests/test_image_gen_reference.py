@@ -1,8 +1,6 @@
 import pytest
 from app.services import image_gen
 
-pytestmark = pytest.mark.asyncio
-
 
 def test_mime_for_key():
     assert image_gen._mime_for_key("inspiration/x.png") == "image/png"

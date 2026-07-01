@@ -135,3 +135,15 @@ async def test_delete_inspiration_clears_page_reference(client: AsyncClient):
     # the page's reference is now cleared
     refreshed = (await client.get(f"/api/pages/{page['id']}")).json()
     assert refreshed["reference_image_id"] is None
+
+
+async def test_delete_book_with_referenced_image_ok(client: AsyncClient):
+    # Create a book+page, upload a book-scoped inspiration image, set it as reference,
+    # then delete the book — should complete cleanly (no FK violation).
+    book_id, page = await _book_page(client)
+    img = await _upload_inspiration(client, book_id=book_id)
+    r = await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": img["id"]})
+    assert r.status_code == 200
+    assert r.json()["reference_image_id"] == img["id"]
+    r = await client.delete(f"/api/books/{book_id}")
+    assert r.status_code == 204
