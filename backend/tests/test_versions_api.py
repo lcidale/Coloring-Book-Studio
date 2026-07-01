@@ -130,3 +130,39 @@ async def test_delete_noncurrent_version_ok(client):
     assert r.status_code == 204
     remaining = (await client.get(f"/api/pages/{page['id']}/versions")).json()
     assert [v["id"] for v in remaining] == [v2]
+
+
+# ── Task: storage cleanup on page/book delete ─────────────────────────────────
+
+from app.services import storage as storage_svc
+
+
+async def test_delete_page_removes_version_storage(client: AsyncClient):
+    """DELETE /pages/{page_id} must delete version storage objects."""
+    book, page = await _make_book_and_page(client)
+    image_path = f"books/{book['id']}/pages/{page['id']}/v001.png"
+    await _seed_version(page["id"], 1, image_path, "p1")
+    # Write a real file so exists() can confirm it's there
+    storage_svc.put_bytes(image_path, b"x")
+    assert storage_svc.exists(image_path), "precondition: file must exist before delete"
+
+    r = await client.delete(f"/api/pages/{page['id']}")
+    assert r.status_code == 204
+    assert not storage_svc.exists(image_path), "storage object must be removed after page delete"
+
+    r2 = await client.get(f"/api/pages/{page['id']}")
+    assert r2.status_code == 404
+
+
+async def test_delete_book_removes_version_storage(client: AsyncClient):
+    """DELETE /books/{book_id} must delete all version storage objects."""
+    book, page = await _make_book_and_page(client)
+    image_path = f"books/{book['id']}/pages/{page['id']}/v001.png"
+    await _seed_version(page["id"], 1, image_path, "p1")
+    # Write a real file so exists() can confirm it's there
+    storage_svc.put_bytes(image_path, b"x")
+    assert storage_svc.exists(image_path), "precondition: file must exist before delete"
+
+    r = await client.delete(f"/api/books/{book['id']}")
+    assert r.status_code == 204
+    assert not storage_svc.exists(image_path), "storage object must be removed after book delete"

@@ -396,6 +396,7 @@ export function useDeleteVersion(pageId: string) {
       apiFetch<void>(`/pages/${pageId}/versions/${versionId}`, { method: "DELETE" }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["versions", pageId] })
+      void qc.invalidateQueries({ queryKey: ["pages", "detail", pageId] })
     },
   })
 }

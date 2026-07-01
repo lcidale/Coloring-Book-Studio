@@ -251,6 +251,9 @@ async def delete_version(page_id: str, version_id: str,
         raise HTTPException(404, "Version not found")
     if page.image_path and pv.image_path == page.image_path:
         raise HTTPException(409, "Cannot delete the current version — restore another first")
+    # Invariant: each version has a unique image_path (generation writes distinct v{num} paths;
+    # restore only copies the reference onto the page, never creates a shared path),
+    # so deleting a non-current version never removes a file still referenced by another.
     for key in (pv.image_path, pv.svg_path):
         if key:
             storage.delete_object(key)
@@ -279,9 +282,17 @@ async def update_page(page_id: str, body: PageUpdate, db: AsyncSession = Depends
 
 @router.delete("/{page_id}", status_code=204)
 async def delete_page(page_id: str, db: AsyncSession = Depends(get_db)):
-    page = await db.get(Page, page_id)
+    result = await db.execute(
+        select(Page).options(selectinload(Page.versions)).where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
     if not page:
         raise HTTPException(404, "Page not found")
+    for v in page.versions:
+        if v.image_path:
+            storage.delete_object(v.image_path)
+        if v.svg_path:
+            storage.delete_object(v.svg_path)
     await db.delete(page)
     await db.commit()
 
