@@ -25,6 +25,10 @@ class PageIn(BaseModel):
     sort_order: int = 0
 
 
+class ReorderIn(BaseModel):
+    page_ids: list[str]
+
+
 class PageUpdate(BaseModel):
     concept: Optional[str] = None
     title: Optional[str] = None
@@ -144,6 +148,22 @@ async def create_page(book_id: str, body: PageIn, db: AsyncSession = Depends(get
     )
     page = result.scalar_one()
     return _page_dict(page)
+
+
+@router.patch("/book/{book_id}/reorder")
+async def reorder_pages(book_id: str, body: ReorderIn, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Page).options(selectinload(Page.text_layers), selectinload(Page.versions))
+        .where(Page.book_id == book_id)
+    )
+    pages = {p.id: p for p in result.scalars().all()}
+    if set(body.page_ids) != set(pages.keys()) or len(body.page_ids) != len(pages):
+        raise HTTPException(400, "page_ids must be exactly the book's pages")
+    for idx, pid in enumerate(body.page_ids):
+        pages[pid].sort_order = idx
+    await db.commit()
+    ordered = sorted(pages.values(), key=lambda p: p.sort_order)
+    return [_page_dict(p) for p in ordered]
 
 
 @router.get("/{page_id}")
