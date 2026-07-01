@@ -23,7 +23,9 @@ come from the generation pipeline. This adds a way to upload and browse referenc
 ## Non-goals (YAGNI — driven by "reference only" intent)
 
 - Inspiration images are **never** included in the print PDF export.
-- They do **not** feed the AI generator (no image-to-image / style-reference use here).
+- They do **not** feed the AI generator **in this spec**. Using an inspiration image as a
+  visual reference for page generation is a separate, dependent feature — see the companion
+  spec `2026-07-01-inspiration-generation-reference-design.md` (built after this one).
 - No tags, folders, albums, notes-beyond-caption, or reordering. Just a flat gallery.
 - No editing of the image itself (crop/rotate/etc.).
 
