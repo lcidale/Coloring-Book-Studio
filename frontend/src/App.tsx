@@ -40,13 +40,13 @@ import { GalleryPage } from "@/features/gallery/GalleryPage"
 import { ComingSoon } from "@/features/placeholders/ComingSoon"
 import {
   AgentConsolePlaceholder,
-  InspirationPlaceholder,
   MyBooksPlaceholder,
   SearchMarketPlaceholder,
   QualityCheckPlaceholder,
   ExportCenterPlaceholder,
   PrintPrepPlaceholder,
 } from "@/features/placeholders/PlaceholderViews"
+import { InspirationPage } from "@/features/inspiration/InspirationPage"
 import { BooksPage } from "@/features/books/BooksPage"
 import { BookDetailPage } from "@/features/books/BookDetailPage"
 import { PageEditorPage } from "@/features/editor/PageEditorPage"
@@ -171,7 +171,7 @@ function Shell() {
           <Route path="/agents" element={<AgentConsolePlaceholder />} />
 
           {/* Library (U12 placeholders) */}
-          <Route path="/inspiration" element={<InspirationPlaceholder />} />
+          <Route path="/inspiration" element={<InspirationPage />} />
           <Route path="/my-books" element={<MyBooksPlaceholder />} />
           <Route path="/market" element={<SearchMarketPlaceholder />} />
 
