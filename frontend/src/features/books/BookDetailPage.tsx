@@ -336,7 +336,7 @@ function SortablePageCard({
   function handleRenameSubmit() {
     const trimmed = renameValue.trim()
     if (trimmed !== (page.title ?? "")) {
-      updatePage.mutate({ id: page.id, title: trimmed || null as unknown as string })
+      updatePage.mutate({ id: page.id, title: trimmed })
     }
     setRenaming(false)
   }
@@ -506,7 +506,7 @@ function PageGrid({
     reorderPages.mutate(newIds, {
       onError: () => {
         // Revert on error
-        qc.setQueryData(["pages", bookId], pages)
+        void qc.invalidateQueries({ queryKey: ["pages", bookId] })
         toast.error("Failed to reorder pages.")
       },
     })
