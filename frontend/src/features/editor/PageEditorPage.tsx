@@ -14,6 +14,7 @@ import {
   useBook,
   useUpdatePage,
   useGeneratePage,
+  useInspiration,
   useJob,
   useRefineConcept,
   useWritePrompt,
@@ -21,9 +22,12 @@ import {
   useCreateTextLayer,
   useDeleteTextLayer,
   pageImageSrc,
+  type Page,
+  type InspirationImage,
   type PageStatus,
 } from "@/lib/api"
 import { VersionsPanel } from "./VersionsPanel"
+import { ReferencePicker } from "./ReferencePicker"
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -97,11 +101,21 @@ function StatusTrack({ current }: { current: PageStatus }) {
 
 // ── Generate Button + Job Polling ──────────────────────────────────────────────
 
-function GenerateSection({ pageId }: { pageId: string }) {
+function GenerateSection({ page }: { page: Page }) {
+  const pageId = page.id
   const generate = useGeneratePage()
   const [activeJobId, setActiveJobId] = React.useState<string | null>(null)
   const { data: job } = useJob(activeJobId)
   const updatePage = useUpdatePage()
+
+  // Per-run reference override
+  const bookImages = useInspiration(page.book_id)
+  const globalImages = useInspiration("global")
+  const eligible: InspirationImage[] = [
+    ...(bookImages.data ?? []),
+    ...(globalImages.data ?? []),
+  ]
+  const [overrideRefId, setOverrideRefId] = React.useState<string | undefined>(undefined)
 
   React.useEffect(() => {
     if (job?.status === "done") {
@@ -116,7 +130,14 @@ function GenerateSection({ pageId }: { pageId: string }) {
 
   async function handleGenerate() {
     try {
-      const j = await generate.mutateAsync({ pageId, options: { auto_cleanup: true, vectorize: false } })
+      const options: { auto_cleanup: boolean; vectorize: boolean; reference_image_id?: string } = {
+        auto_cleanup: true,
+        vectorize: false,
+      }
+      if (overrideRefId !== undefined) {
+        options.reference_image_id = overrideRefId
+      }
+      const j = await generate.mutateAsync({ pageId, options })
       setActiveJobId(j.job_id)
       toast.info("Generation queued…")
     } catch (err) {
@@ -143,6 +164,21 @@ function GenerateSection({ pageId }: { pageId: string }) {
         )}
         {isRunning ? statusText : "🖼 Generate Image"}
       </Button>
+      {eligible.length > 0 && (
+        <select
+          aria-label="Override reference for this run"
+          value={overrideRefId ?? ""}
+          onChange={(e) => setOverrideRefId(e.target.value || undefined)}
+          className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[12px] text-[var(--foreground)]"
+        >
+          <option value="">Use sticky reference</option>
+          {eligible.map((img) => (
+            <option key={img.id} value={img.id}>
+              {img.caption ?? img.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+      )}
       {job && job.status === "running" && (
         <span className="text-[12px] text-[var(--muted-foreground)]">
           Job {job.job_id.slice(0, 8)}…
@@ -436,7 +472,7 @@ export function PageEditorPage() {
         />
 
         <div className="ml-auto flex items-center gap-2">
-          <GenerateSection pageId={pageId} />
+          <GenerateSection page={page} />
           <Button
             variant="outline"
             size="sm"
@@ -691,6 +727,9 @@ export function PageEditorPage() {
               </div>
             </div>
           )}
+
+          {/* Reference image (sticky) */}
+          <ReferencePicker page={page} />
 
           {/* Text layers */}
           <TextLayersPanel pageId={pageId} />

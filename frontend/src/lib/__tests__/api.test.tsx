@@ -463,8 +463,8 @@ describe("useUpdatePage reference", () => {
     const { result } = renderHook(() => useUpdatePage(), { wrapper })
     result.current.mutate({ id: "p1", reference_image_id: "i1" })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    const [, init] = fetchMock.mock.calls[0]
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ reference_image_id: "i1" })
+    const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(call[1].body as string)).toEqual({ reference_image_id: "i1" })
   })
 })
 
