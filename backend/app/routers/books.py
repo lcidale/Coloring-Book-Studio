@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Book, StyleGuide, Page, PageStatus, PageVersion
+from app.models import Book, StyleGuide, Page, PageStatus, PageVersion, InspirationImage
 from app.services import storage
 
 router = APIRouter()
@@ -196,17 +196,24 @@ async def upsert_style_guide(book_id: str, body: StyleGuideIn, db: AsyncSession 
 async def delete_book(book_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Book)
-        .options(selectinload(Book.pages).selectinload(Page.versions))
+        .options(
+            selectinload(Book.pages).selectinload(Page.versions),
+            selectinload(Book.inspiration_images),
+        )
         .where(Book.id == book_id)
     )
     book = result.scalar_one_or_none()
     if not book:
         raise HTTPException(404, "Book not found")
+    # delete page-version storage objects
     for page in book.pages:
         for v in page.versions:
-            if v.image_path:
-                storage.delete_object(v.image_path)
-            if v.svg_path:
-                storage.delete_object(v.svg_path)
+            for key in (v.image_path, v.svg_path):
+                if key:
+                    storage.delete_object(key)
+    # delete inspiration storage objects
+    for img in book.inspiration_images:
+        if img.image_path:
+            storage.delete_object(img.image_path)
     await db.delete(book)
     await db.commit()

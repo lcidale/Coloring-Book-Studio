@@ -86,3 +86,15 @@ async def test_delete_removes_row_and_storage(client: AsyncClient):
     assert r.status_code == 204
     assert not storage_svc.exists(key)
     assert len((await client.get("/api/inspiration")).json()) == 0
+
+
+async def test_delete_book_removes_inspiration_storage(client: AsyncClient):
+    book_id = await _make_book(client)
+    files = [("files", ("b.png", io.BytesIO(_png_bytes()), "image/png"))]
+    img = (await client.post("/api/inspiration", files=files, data={"book_id": book_id})).json()[0]
+    key = "inspiration/" + img["image_url"].rsplit("/inspiration/", 1)[1]
+    assert storage_svc.exists(key)
+
+    r = await client.delete(f"/api/books/{book_id}")
+    assert r.status_code == 204
+    assert not storage_svc.exists(key), "book delete must remove its inspiration files"
