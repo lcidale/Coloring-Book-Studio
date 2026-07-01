@@ -494,6 +494,7 @@ export function useGeneratePage() {
     onSuccess: (_job, { pageId }) => {
       // The caller should also watch useJob(job.job_id) for completion
       void qc.invalidateQueries({ queryKey: ["pages", "detail", pageId] })
+      void qc.invalidateQueries({ queryKey: ["versions", pageId] })
     },
   })
 }

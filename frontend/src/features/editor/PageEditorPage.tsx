@@ -23,6 +23,7 @@ import {
   pageImageSrc,
   type PageStatus,
 } from "@/lib/api"
+import { VersionsPanel } from "./VersionsPanel"
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -264,6 +265,12 @@ export function PageEditorPage() {
   const updatePage = useUpdatePage()
   const [exporting, setExporting] = React.useState(false)
 
+  // Title edit state
+  const [titleDraft, setTitleDraft] = React.useState(page?.title ?? "")
+  React.useEffect(() => {
+    setTitleDraft(page?.title ?? "")
+  }, [page?.title])
+
   // Prompt edit state
   const [editingPrompt, setEditingPrompt] = React.useState(false)
   const [promptDraft, setPromptDraft] = React.useState("")
@@ -416,6 +423,17 @@ export function PageEditorPage() {
         <Badge variant={STATUS_VARIANT[page.status]} dot className="ml-1">
           {STATUS_LABEL[page.status]}
         </Badge>
+        <input
+          aria-label="Page title"
+          value={titleDraft}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onBlur={() => {
+            const trimmed = titleDraft.trim()
+            updatePage.mutate({ id: page.id, title: trimmed })
+          }}
+          placeholder="Add a title…"
+          className="ml-2 rounded border border-transparent bg-transparent px-2 py-0.5 text-[13px] text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none hover:border-[var(--border)] focus:border-[var(--brand-accent)]"
+        />
 
         <div className="ml-auto flex items-center gap-2">
           <GenerateSection pageId={pageId} />
@@ -437,10 +455,24 @@ export function PageEditorPage() {
 
       {/* Main layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: image preview */}
+        {/* Left: image preview + version history */}
         <div className="min-w-0 flex-1 overflow-y-auto p-5">
-          <div className="h-[min(60vh,500px)]">
-            <ImagePreview imagePath={page.image_path} concept={page.concept} />
+          <div className="flex gap-4">
+            <div className="h-[min(60vh,500px)] flex-1">
+              <ImagePreview imagePath={page.image_path} concept={page.concept} />
+            </div>
+            <div className="w-[280px] shrink-0">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Version History
+              </p>
+              <VersionsPanel
+                pageId={page.id}
+                onCopyPrompt={(p) => {
+                  setPromptDraft(p)
+                  setEditingPrompt(true)
+                }}
+              />
+            </div>
           </div>
 
           {/* Concept */}

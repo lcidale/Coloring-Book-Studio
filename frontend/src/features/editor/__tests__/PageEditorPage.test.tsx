@@ -26,6 +26,10 @@ vi.mock('@/lib/api', () => ({
   useWritePrompt: vi.fn(),
   useCreateTextLayer: vi.fn(),
   useDeleteTextLayer: vi.fn(),
+  useVersions: vi.fn(),
+  useRestoreVersion: vi.fn(),
+  useUpdateVersion: vi.fn(),
+  useDeleteVersion: vi.fn(),
   exportBookPdf: vi.fn(),
   pageImageSrc: (p: string) => `/storage/${p}`,
 }))
@@ -48,6 +52,7 @@ const PAGE: Page = {
   id: 'page-1',
   book_id: 'book-1',
   sort_order: 1,
+  title: null,
   concept: 'A bear fishing in a river',
   status: 'idea',
   prompt: null,
@@ -141,6 +146,24 @@ function setupDefaultMocks() {
 
   vi.mocked(api.useDeleteTextLayer).mockReturnValue(
     makeMutation() as ReturnType<typeof api.useDeleteTextLayer>
+  )
+
+  vi.mocked(api.useVersions).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+  } as ReturnType<typeof api.useVersions>)
+
+  vi.mocked(api.useRestoreVersion).mockReturnValue(
+    makeMutation() as ReturnType<typeof api.useRestoreVersion>
+  )
+
+  vi.mocked(api.useUpdateVersion).mockReturnValue(
+    makeMutation() as ReturnType<typeof api.useUpdateVersion>
+  )
+
+  vi.mocked(api.useDeleteVersion).mockReturnValue(
+    makeMutation() as ReturnType<typeof api.useDeleteVersion>
   )
 }
 
