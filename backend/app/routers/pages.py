@@ -162,8 +162,7 @@ async def reorder_pages(book_id: str, body: ReorderIn, db: AsyncSession = Depend
     for idx, pid in enumerate(body.page_ids):
         pages[pid].sort_order = idx
     await db.commit()
-    ordered = sorted(pages.values(), key=lambda p: p.sort_order)
-    return [_page_dict(p) for p in ordered]
+    return [_page_dict(pages[pid]) for pid in body.page_ids]
 
 
 @router.get("/{page_id}")

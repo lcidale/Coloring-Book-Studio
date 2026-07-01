@@ -30,3 +30,27 @@ async def test_reorder_rejects_foreign_page(client):
     r = await client.patch(f"/api/pages/book/{book['id']}/reorder",
                            json={"page_ids": [p["id"], "not-in-book"]})
     assert r.status_code == 400
+
+
+async def test_reorder_rejects_subset(client):
+    book = (await client.post("/api/books", json={"title": "B"})).json()
+    ids = []
+    for i in range(2):
+        p = (await client.post(f"/api/pages/book/{book['id']}",
+                               json={"concept": f"c{i}"})).json()
+        ids.append(p["id"])
+    r = await client.patch(f"/api/pages/book/{book['id']}/reorder",
+                           json={"page_ids": [ids[0]]})
+    assert r.status_code == 400
+
+
+async def test_reorder_rejects_duplicate(client):
+    book = (await client.post("/api/books", json={"title": "B"})).json()
+    ids = []
+    for i in range(2):
+        p = (await client.post(f"/api/pages/book/{book['id']}",
+                               json={"concept": f"c{i}"})).json()
+        ids.append(p["id"])
+    r = await client.patch(f"/api/pages/book/{book['id']}/reorder",
+                           json={"page_ids": [ids[0], ids[0]]})
+    assert r.status_code == 400
