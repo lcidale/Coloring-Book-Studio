@@ -3,11 +3,11 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Book, InspirationImage
+from app.models import Book, InspirationImage, Page
 from app.services import storage
 
 router = APIRouter()
@@ -105,6 +105,9 @@ async def delete_inspiration(image_id: str, db: AsyncSession = Depends(get_db)):
     img = await db.get(InspirationImage, image_id)
     if not img:
         raise HTTPException(404, "Inspiration image not found")
+    await db.execute(
+        update(Page).where(Page.reference_image_id == image_id).values(reference_image_id=None)
+    )
     if img.image_path:
         storage.delete_object(img.image_path)
     await db.delete(img)

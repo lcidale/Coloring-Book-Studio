@@ -123,3 +123,15 @@ async def test_generate_override_from_other_book_400(client: AsyncClient):
         json={"auto_cleanup": False, "vectorize": False, "reference_image_id": bad["id"]},
     )
     assert r.status_code == 400
+
+
+async def test_delete_inspiration_clears_page_reference(client: AsyncClient):
+    book_id, page = await _book_page(client)
+    img = await _upload_inspiration(client, book_id=book_id)
+    await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": img["id"]})
+    # delete the inspiration image
+    r = await client.delete(f"/api/inspiration/{img['id']}")
+    assert r.status_code == 204
+    # the page's reference is now cleared
+    refreshed = (await client.get(f"/api/pages/{page['id']}")).json()
+    assert refreshed["reference_image_id"] is None
