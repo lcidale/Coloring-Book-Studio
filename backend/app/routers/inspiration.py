@@ -81,3 +81,31 @@ async def list_inspiration(book_id: Optional[str] = None, db: AsyncSession = Dep
     stmt = stmt.order_by(InspirationImage.created_at.desc())
     rows = (await db.execute(stmt)).scalars().all()
     return [_dict(i) for i in rows]
+
+
+@router.patch("/{image_id}")
+async def update_inspiration(image_id: str, body: InspirationUpdate, db: AsyncSession = Depends(get_db)):
+    img = await db.get(InspirationImage, image_id)
+    if not img:
+        raise HTTPException(404, "Inspiration image not found")
+    fields = body.model_fields_set  # distinguish explicit null from omitted
+    if "caption" in fields:
+        img.caption = body.caption
+    if "book_id" in fields:
+        if body.book_id is not None and not await db.get(Book, body.book_id):
+            raise HTTPException(404, "Book not found")
+        img.book_id = body.book_id
+    await db.commit()
+    await db.refresh(img)
+    return _dict(img)
+
+
+@router.delete("/{image_id}", status_code=204)
+async def delete_inspiration(image_id: str, db: AsyncSession = Depends(get_db)):
+    img = await db.get(InspirationImage, image_id)
+    if not img:
+        raise HTTPException(404, "Inspiration image not found")
+    if img.image_path:
+        storage.delete_object(img.image_path)
+    await db.delete(img)
+    await db.commit()

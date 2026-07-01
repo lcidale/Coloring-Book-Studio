@@ -49,3 +49,40 @@ async def test_list_filters_global_and_all(client: AsyncClient):
     assert len(global_rows) == 1 and global_rows[0]["book_id"] is None
     book_rows = (await client.get(f"/api/inspiration?book_id={book_id}")).json()
     assert len(book_rows) == 1 and book_rows[0]["book_id"] == book_id
+
+
+async def _upload_one_global(client: AsyncClient) -> dict:
+    files = [("files", ("g.png", io.BytesIO(_png_bytes()), "image/png"))]
+    return (await client.post("/api/inspiration", files=files)).json()[0]
+
+
+async def test_patch_caption_and_reassign_book(client: AsyncClient):
+    book_id = await _make_book(client)
+    img = await _upload_one_global(client)
+    # set caption + attach to a book
+    r = await client.patch(f"/api/inspiration/{img['id']}", json={"caption": "great", "book_id": book_id})
+    assert r.status_code == 200
+    assert r.json()["caption"] == "great"
+    assert r.json()["book_id"] == book_id
+    # explicit null clears book_id (back to global)
+    r2 = await client.patch(f"/api/inspiration/{img['id']}", json={"book_id": None})
+    assert r2.json()["book_id"] is None
+    # caption unchanged by the book_id-only patch
+    assert r2.json()["caption"] == "great"
+
+
+async def test_patch_reassign_unknown_book_404(client: AsyncClient):
+    img = await _upload_one_global(client)
+    r = await client.patch(f"/api/inspiration/{img['id']}", json={"book_id": "nope"})
+    assert r.status_code == 404
+
+
+async def test_delete_removes_row_and_storage(client: AsyncClient):
+    img = await _upload_one_global(client)
+    # the stored key is the tail of the image_url path
+    key = "inspiration/" + img["image_url"].rsplit("/inspiration/", 1)[1]
+    assert storage_svc.exists(key)
+    r = await client.delete(f"/api/inspiration/{img['id']}")
+    assert r.status_code == 204
+    assert not storage_svc.exists(key)
+    assert len((await client.get("/api/inspiration")).json()) == 0
