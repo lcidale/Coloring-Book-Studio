@@ -154,6 +154,34 @@ async def get_page(page_id: str, db: AsyncSession = Depends(get_db)):
     return _page_dict(page)
 
 
+@router.post("/{page_id}/versions/{version_id}/restore")
+async def restore_version(page_id: str, version_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Page)
+        .options(selectinload(Page.text_layers), selectinload(Page.versions))
+        .where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+
+    pv = next((v for v in page.versions if v.id == version_id), None)
+    if pv is None:
+        raise HTTPException(404, "Version not found")
+
+    page.image_path = pv.image_path
+    page.prompt = pv.prompt
+    page.image_dpi = pv.dpi
+    page.image_width_px = pv.width_px
+    page.image_height_px = pv.height_px
+    if pv.is_pure_bw is not None:
+        page.is_pure_bw = pv.is_pure_bw
+    page.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(page)
+    return _page_dict(page)
+
+
 @router.get("/{page_id}/versions")
 async def list_versions(page_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
