@@ -21,6 +21,7 @@ inline (the SDK gives us image bytes in the response, not a URL), so it returns
 a ``bytes`` object instead of a URL string.  generate_line_art() handles both
 shapes transparently.
 """
+import logging
 import os
 import httpx
 from pathlib import Path
@@ -28,6 +29,22 @@ from typing import Optional
 
 from app.services import providers as _providers
 from app.services import storage as _storage
+
+_log = logging.getLogger(__name__)
+
+_MIME_BY_EXT = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+    "gif": "image/gif",
+}
+
+
+def _mime_for_key(key: str) -> str:
+    ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+    return _MIME_BY_EXT.get(ext, "application/octet-stream")
+
 
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
 
@@ -145,6 +162,7 @@ async def generate_line_art(
     provider: Optional[str] = None,
     model: Optional[str] = None,
     db=None,
+    reference_image_key: Optional[str] = None,
 ) -> Path:
     """Generate line art and save to storage. Returns path relative to STORAGE_DIR.
 
@@ -161,12 +179,20 @@ async def generate_line_art(
 
     resolved_provider, resolved_model = await _resolve_provider_model(provider, model, db)
 
+    reference: Optional[tuple[bytes, str]] = None
+    if reference_image_key:
+        reference = (_storage.get_bytes(reference_image_key), _mime_for_key(reference_image_key))
+
     if resolved_provider == "replicate":
+        if reference is not None:
+            _log.info("reference image supplied but replicate does not support it; ignoring")
         result = await _generate_replicate(positive_prompt, negative_prompt, width, height, resolved_model)
     elif resolved_provider == "fal":
+        if reference is not None:
+            _log.info("reference image supplied but fal does not support it; ignoring")
         result = await _generate_fal(positive_prompt, negative_prompt, width, height, resolved_model)
     elif resolved_provider == "gemini":
-        result = await _generate_gemini(positive_prompt, negative_prompt, width, height, resolved_model)
+        result = await _generate_gemini(positive_prompt, negative_prompt, width, height, resolved_model, reference)
     else:
         raise ValueError(f"Unknown image provider: {resolved_provider}")
 
@@ -236,7 +262,8 @@ async def _generate_fal(
 
 
 async def _generate_gemini(
-    positive: str, negative: str, width: int, height: int, model: str
+    positive: str, negative: str, width: int, height: int, model: str,
+    reference: Optional[tuple[bytes, str]] = None,
 ) -> bytes:
     """Generate line art with Google's Nano Banana (Gemini image model).
 
@@ -268,9 +295,14 @@ async def _generate_gemini(
     prompt = " ".join(p for p in prompt_parts if p)
 
     client = genai.Client(api_key=api_key)
+    if reference is not None:
+        ref_bytes, ref_mime = reference
+        contents = [types.Part.from_bytes(data=ref_bytes, mime_type=ref_mime), prompt]
+    else:
+        contents = prompt
     response = await client.aio.models.generate_content(
         model=model,
-        contents=prompt,
+        contents=contents,
         config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
     )
 
