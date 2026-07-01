@@ -57,7 +57,6 @@ function ImageCard({ img, onDelete, deleting }: { img: InspirationImage; onDelet
       {img.image_url && (
         <img src={pageImageSrc(img.image_url)} alt={img.caption ?? "inspiration"} className="aspect-square w-full object-contain" />
       )}
-      {img.caption && <p className="mt-1 text-xs text-muted-foreground">{img.caption}</p>}
       <input
         aria-label={`Caption for ${img.id}`}
         defaultValue={img.caption ?? ""}

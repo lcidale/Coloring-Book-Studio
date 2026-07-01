@@ -30,13 +30,13 @@ function renderGallery(scope = "global") {
 describe("InspirationGallery", () => {
   it("renders inspiration images with captions", async () => {
     renderGallery()
-    expect(await screen.findByText("calm forest")).toBeInTheDocument()
+    expect(await screen.findByDisplayValue("calm forest")).toBeInTheDocument()
     expect(screen.getAllByRole("img").length).toBe(2)
   })
 
   it("deletes an image", async () => {
     renderGallery()
-    await screen.findByText("calm forest")
+    await screen.findByDisplayValue("calm forest")
     await userEvent.click(screen.getAllByRole("button", { name: /delete inspiration/i })[0])
     // confirm in the alert dialog
     await userEvent.click(await screen.findByRole("button", { name: /^delete$/i }))
