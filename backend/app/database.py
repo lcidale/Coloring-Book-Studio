@@ -49,13 +49,21 @@ class Base(DeclarativeBase):
 # This block is ONLY applied on the SQLite path.
 # ---------------------------------------------------------------------------
 _COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
-    "page_versions": {"svg_path": "VARCHAR"},
+    "pages": {"title": "VARCHAR(200)"},
+    "page_versions": {
+        "svg_path": "VARCHAR",
+        "label": "VARCHAR(120)",
+        "dpi": "INTEGER",
+        "width_px": "INTEGER",
+        "height_px": "INTEGER",
+        "is_pure_bw": "BOOLEAN",
+    },
     "text_layers": {"text_anchor": "VARCHAR(20) DEFAULT 'middle'"},
     "app_settings": {
-        "concept_provider": "VARCHAR DEFAULT ''",
-        "concept_model": "VARCHAR DEFAULT ''",
-        "prompt_provider": "VARCHAR DEFAULT ''",
-        "prompt_model": "VARCHAR DEFAULT ''",
+        "concept_provider": "VARCHAR(50)",
+        "concept_model": "VARCHAR(200)",
+        "prompt_provider": "VARCHAR(50)",
+        "prompt_model": "VARCHAR(200)",
     },
 }
 
@@ -73,24 +81,25 @@ def _apply_column_migrations(conn) -> None:
                 conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
 
 
-def _apply_pg_column_migrations(conn) -> None:
-    """Run idempotent ADD COLUMN IF NOT EXISTS migrations (Postgres only).
+def _pg_alter_statements() -> list[str]:
+    """Build idempotent Postgres ADD COLUMN statements from the migration map.
 
-    Postgres supports ``ALTER TABLE … ADD COLUMN IF NOT EXISTS`` so each
-    statement is safe to run against an existing table that already has the
-    column.  This is needed because SQLAlchemy's ``create_all`` never adds
-    columns to tables that already exist — without this, new columns would be
-    missing from the live Neon app_settings table and settings reads would 500.
+    Uses each column's declared DDL (type + optional DEFAULT) rather than
+    forcing VARCHAR — so INTEGER/BOOLEAN columns get the right type.
     """
+    stmts: list[str] = []
     for table, columns in _COLUMN_MIGRATIONS.items():
-        for col, _ddl in columns.items():
-            # Strip any SQLite-isms from the DDL and emit a clean Postgres type.
-            # All migrations in _COLUMN_MIGRATIONS that target Postgres are plain
-            # VARCHAR with an optional DEFAULT, which Postgres accepts as-is.
-            # We always default to empty string to match the model defaults.
-            conn.exec_driver_sql(
-                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} VARCHAR DEFAULT ''"
+        for col, ddl in columns.items():
+            stmts.append(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ddl}"
             )
+    return stmts
+
+
+def _apply_pg_column_migrations(conn) -> None:
+    """Run idempotent ADD COLUMN IF NOT EXISTS migrations (Postgres only)."""
+    for stmt in _pg_alter_statements():
+        conn.exec_driver_sql(stmt)
 
 
 def _ensure_vector_extension(conn) -> None:

@@ -112,6 +112,7 @@ class Page(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     book_id: Mapped[str] = mapped_column(String, ForeignKey("books.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     # Concept
     concept: Mapped[str] = mapped_column(Text, default="")   # human-readable page idea
@@ -176,6 +177,11 @@ class PageVersion(Base):
     svg_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # vectorized line art
     prompt: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    label: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    dpi: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    width_px: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    height_px: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_pure_bw: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     page: Mapped["Page"] = relationship("Page", back_populates="versions")
