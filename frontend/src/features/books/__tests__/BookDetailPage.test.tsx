@@ -13,6 +13,8 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url === "/api/books/b1") return new Response(JSON.stringify({ id: "b1", title: "B", emoji: "📖", theme: "", audience: "", positioning: "", target_page_count: 30, page_count: 2, approved_count: 0, progress_pct: 0, created_at: "", updated_at: "", style_guide: null }), { status: 200, headers: { "content-type": "application/json" } })
     if (url === "/api/pages/book/b1") return new Response(JSON.stringify(PAGES), { status: 200, headers: { "content-type": "application/json" } })
+    if (url.startsWith("/api/inspiration")) return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } })
+    if (url === "/api/books") return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } })
     return new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
   }))
 })
@@ -33,5 +35,10 @@ describe("BookDetailPage", () => {
     renderPage()
     expect(await screen.findByText("p.01 — One")).toBeInTheDocument()
     expect(await screen.findByText("p.02 — Two")).toBeInTheDocument()
+  })
+
+  it("shows an Inspiration section", async () => {
+    renderPage()
+    expect(await screen.findByRole("heading", { name: /inspiration/i })).toBeInTheDocument()
   })
 })

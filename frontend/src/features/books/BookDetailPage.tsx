@@ -64,6 +64,7 @@ import {
 } from "@/lib/api"
 import { pageDisplayName } from "./pageLabel"
 import { useQueryClient } from "@tanstack/react-query"
+import { InspirationGallery } from "@/features/inspiration/InspirationGallery"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -710,9 +711,13 @@ export function BookDetailPage() {
         })}
       </div>
 
-      {/* Page grid */}
+      {/* Page grid + Inspiration */}
       <div className="flex-1 overflow-y-auto p-5">
         <PageGrid bookId={id} filterStatus={filterStatus} />
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">Inspiration</h2>
+          <InspirationGallery scope={id} />
+        </section>
       </div>
 
       {/* Style Guide Dialog */}
