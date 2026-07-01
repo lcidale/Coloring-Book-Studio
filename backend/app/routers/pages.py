@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Book, Page, PageStatus, PageVersion, TextLayer
+from app.models import Book, InspirationImage, Page, PageStatus, PageVersion, TextLayer
 from app.services import storage
 from app.services import text_gen, text_providers
 from app.services.prompt_builder import build_prompt
@@ -39,6 +39,7 @@ class PageUpdate(BaseModel):
     print_check_notes: Optional[str] = None
     leslie_notes: Optional[str] = None
     sort_order: Optional[int] = None
+    reference_image_id: Optional[str] = None
 
 
 class VersionUpdate(BaseModel):
@@ -131,6 +132,15 @@ def _version_dict(page: Page, pv: PageVersion) -> dict:
         "created_at": pv.created_at.isoformat() if pv.created_at else None,
         "is_current": bool(page.image_path) and pv.image_path == page.image_path,
     }
+
+
+async def _eligible_reference_or_400(image_id: str, page: Page, db: AsyncSession) -> InspirationImage:
+    img = await db.get(InspirationImage, image_id)
+    if img is None:
+        raise HTTPException(400, "Reference image not found")
+    if img.book_id is not None and img.book_id != page.book_id:
+        raise HTTPException(400, "Reference image is not available for this book")
+    return img
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -293,8 +303,15 @@ async def update_page(page_id: str, body: PageUpdate, db: AsyncSession = Depends
     if not page:
         raise HTTPException(404, "Page not found")
 
-    for field, val in body.model_dump(exclude_none=True).items():
+    data = body.model_dump(exclude_none=True)
+    ref_provided = "reference_image_id" in body.model_fields_set
+    data.pop("reference_image_id", None)  # handled explicitly below
+    for field, val in data.items():
         setattr(page, field, val)
+    if ref_provided:
+        if body.reference_image_id is not None:
+            await _eligible_reference_or_400(body.reference_image_id, page, db)
+        page.reference_image_id = body.reference_image_id
     page.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(page)
