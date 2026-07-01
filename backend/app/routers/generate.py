@@ -11,11 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Book, Page, PageStatus, PageVersion, StyleGuide
+from app.models import Book, Page, PageStatus, StyleGuide
 from app.services.prompt_builder import build_prompt
 from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
 from app.services.vectorize import vectorize_page
+from app.services.versioning import record_version
 
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
 
@@ -96,23 +97,7 @@ async def generate_page(
         vectorize_page(abs_path, svg_abs, preview_png_path=preview_abs)
         svg_rel = str(svg_abs.relative_to(STORAGE_DIR))
 
-    # Persist version snapshot
-    pv = PageVersion(
-        page_id=page_id,
-        version_num=version_num,
-        image_path=str(rel_path),
-        svg_path=svg_rel,
-        prompt=positive,
-    )
-    db.add(pv)
-
-    # Update page record
-    page.image_path = str(rel_path)
-    page.image_dpi = report.dpi
-    page.image_width_px = report.width_px
-    page.image_height_px = report.height_px
-    page.is_pure_bw = report.is_pure_bw
-    page.print_check_notes = "; ".join(report.issues) if report.issues else "Passed"
+    record_version(db, page, version_num, rel_path, svg_rel, positive, report)
     page.status = PageStatus.review
 
     await db.commit()
