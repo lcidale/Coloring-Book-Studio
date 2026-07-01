@@ -598,3 +598,57 @@ export function useWritePrompt(pageId: string) {
       apiFetch<WrittenPrompt>(`/pages/${pageId}/write-prompt`, { method: "POST", body: JSON.stringify({}) }),
   })
 }
+
+// ── Inspiration ──────────────────────────────────────────────────────────────
+
+export interface InspirationImage {
+  id: string
+  book_id: string | null
+  image_url: string | null
+  caption: string | null
+  created_at: string
+}
+
+export function useInspiration(scope: string) {
+  // scope: "all" | "global" | <bookId>
+  return useQuery<InspirationImage[]>({
+    queryKey: ["inspiration", scope],
+    queryFn: () => apiFetch<InspirationImage[]>(`/inspiration?book_id=${encodeURIComponent(scope)}`),
+    enabled: !!scope,
+  })
+}
+
+export function useUploadInspiration() {
+  const qc = useQueryClient()
+  return useMutation<InspirationImage[], Error, { files: File[]; bookId?: string | null; caption?: string }>({
+    mutationFn: async ({ files, bookId, caption }) => {
+      // Multipart: build FormData and let the browser set the boundary — do NOT
+      // route through apiFetch (it forces Content-Type: application/json).
+      const fd = new FormData()
+      files.forEach((f) => fd.append("files", f))
+      if (bookId) fd.append("book_id", bookId)
+      if (caption) fd.append("caption", caption)
+      const res = await fetch(`/api/inspiration`, { method: "POST", body: fd })
+      if (!res.ok) throw new Error(`API ${res.status}: ${await res.text().catch(() => res.statusText)}`)
+      return res.json() as Promise<InspirationImage[]>
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["inspiration"] }) },
+  })
+}
+
+export function useUpdateInspiration() {
+  const qc = useQueryClient()
+  return useMutation<InspirationImage, Error, { id: string; caption?: string; book_id?: string | null }>({
+    mutationFn: ({ id, ...data }) =>
+      apiFetch<InspirationImage>(`/inspiration/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["inspiration"] }) },
+  })
+}
+
+export function useDeleteInspiration() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => apiFetch<void>(`/inspiration/${id}`, { method: "DELETE" }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["inspiration"] }) },
+  })
+}

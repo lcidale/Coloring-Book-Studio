@@ -432,7 +432,23 @@ describe('useWritePrompt', () => {
 
 // ── useVersions ───────────────────────────────────────────────────────────────
 
-import { useVersions } from '../api'
+import { useVersions, useInspiration } from '../api'
+
+describe('useInspiration', () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      JSON.stringify([{ id: "i1", book_id: null, image_url: "/storage/inspiration/x.png", caption: null, created_at: "" }]),
+      { status: 200, headers: { "content-type": "application/json" } },
+    )))
+  })
+  it("fetches inspiration for a scope", async () => {
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useInspiration("global"), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.[0].id).toBe("i1")
+    expect(fetch).toHaveBeenCalledWith("/api/inspiration?book_id=global", expect.anything())
+  })
+})
 
 describe('useVersions', () => {
   it('fetches versions for a page', async () => {
