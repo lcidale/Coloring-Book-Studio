@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Book, Page, PageStatus, TextLayer
+from app.models import Book, Page, PageStatus, PageVersion, TextLayer
 from app.services import storage
 from app.services import text_gen, text_providers
 from app.services.prompt_builder import build_prompt
@@ -21,11 +21,13 @@ router = APIRouter()
 
 class PageIn(BaseModel):
     concept: str
+    title: Optional[str] = None
     sort_order: int = 0
 
 
 class PageUpdate(BaseModel):
     concept: Optional[str] = None
+    title: Optional[str] = None
     prompt: Optional[str] = None
     negative_prompt: Optional[str] = None
     status: Optional[PageStatus] = None
@@ -53,6 +55,7 @@ def _page_dict(page: Page) -> dict:
         "id": page.id,
         "book_id": page.book_id,
         "sort_order": page.sort_order,
+        "title": page.title,
         "concept": page.concept,
         "prompt": page.prompt,
         "negative_prompt": page.negative_prompt,
@@ -86,6 +89,25 @@ def _tl_dict(tl: TextLayer) -> dict:
     }
 
 
+def _version_dict(page: Page, pv: PageVersion) -> dict:
+    return {
+        "id": pv.id,
+        "page_id": pv.page_id,
+        "version_num": pv.version_num,
+        "image_url": storage.public_url(pv.image_path) if pv.image_path else None,
+        "svg_url": storage.public_url(pv.svg_path) if pv.svg_path else None,
+        "prompt": pv.prompt,
+        "label": pv.label,
+        "notes": pv.notes,
+        "dpi": pv.dpi,
+        "width_px": pv.width_px,
+        "height_px": pv.height_px,
+        "is_pure_bw": pv.is_pure_bw,
+        "created_at": pv.created_at.isoformat() if pv.created_at else None,
+        "is_current": bool(page.image_path) and pv.image_path == page.image_path,
+    }
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/book/{book_id}")
@@ -105,7 +127,8 @@ async def create_page(book_id: str, body: PageIn, db: AsyncSession = Depends(get
     if not book:
         raise HTTPException(404, "Book not found")
 
-    page = Page(book_id=book_id, concept=body.concept, sort_order=body.sort_order)
+    page = Page(book_id=book_id, concept=body.concept,
+                title=body.title, sort_order=body.sort_order)
     db.add(page)
     await db.commit()
     # Re-load with relationships eagerly so _page_dict doesn't lazy-load in async (MissingGreenlet).
@@ -129,6 +152,18 @@ async def get_page(page_id: str, db: AsyncSession = Depends(get_db)):
     if not page:
         raise HTTPException(404, "Page not found")
     return _page_dict(page)
+
+
+@router.get("/{page_id}/versions")
+async def list_versions(page_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Page).options(selectinload(Page.versions)).where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+    ordered = sorted(page.versions, key=lambda v: v.version_num, reverse=True)
+    return [_version_dict(page, v) for v in ordered]
 
 
 @router.patch("/{page_id}")
