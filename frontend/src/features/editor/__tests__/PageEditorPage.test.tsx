@@ -30,6 +30,7 @@ vi.mock('@/lib/api', () => ({
   useRestoreVersion: vi.fn(),
   useUpdateVersion: vi.fn(),
   useDeleteVersion: vi.fn(),
+  useUseVersionAsReference: vi.fn(),
   useEligibleReferenceImages: vi.fn(),
   exportBookPdf: vi.fn(),
   pageImageSrc: (p: string) => `/storage/${p}`,
@@ -167,6 +168,10 @@ function setupDefaultMocks() {
 
   vi.mocked(api.useDeleteVersion).mockReturnValue(
     makeMutation() as ReturnType<typeof api.useDeleteVersion>
+  )
+
+  vi.mocked(api.useUseVersionAsReference).mockReturnValue(
+    makeMutation() as ReturnType<typeof api.useUseVersionAsReference>
   )
 
   vi.mocked(api.useEligibleReferenceImages).mockReturnValue([])
