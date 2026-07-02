@@ -245,3 +245,17 @@ class TestCleanup:
         # The thin-line warning may or may not fire; we only care that B&W and DPI pass.
         bw_issues = [i for i in report.issues if "gray" in i.lower() or "DPI" in i]
         assert bw_issues == [], f"Unexpected issues after cleanup: {bw_issues}"
+
+    def test_border_px_forwarded_to_autocrop(self, tmp_path: Path):
+        """cleanup()'s border_px must actually reach autocrop, not be silently
+        dropped in favor of autocrop's own hardcoded default."""
+        p_small = make_bordered_png(tmp_path / "a.png", border=40)
+        p_large = make_bordered_png(tmp_path / "b.png", border=40)
+
+        cleanup(p_small, target_dpi=300, border_px=5)
+        cleanup(p_large, target_dpi=300, border_px=80)
+
+        small_size = Image.open(p_small).size
+        large_size = Image.open(p_large).size
+        assert large_size[0] > small_size[0]
+        assert large_size[1] > small_size[1]

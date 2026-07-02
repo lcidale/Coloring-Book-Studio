@@ -175,6 +175,7 @@ def cleanup(
     threshold: int = 128,
     despeckle_min_size: int = 12,
     do_autocrop: bool = True,
+    border_px: int = 40,
 ) -> Path:
     """
     Full raster cleanup pipeline for a generated page, in order:
@@ -187,6 +188,6 @@ def cleanup(
     threshold_to_pure_bw(image_path, threshold=threshold)
     despeckle(image_path, min_size=despeckle_min_size)
     if do_autocrop:
-        autocrop(image_path)
+        autocrop(image_path, border_px=border_px)
     set_dpi(image_path, target_dpi)
     return image_path

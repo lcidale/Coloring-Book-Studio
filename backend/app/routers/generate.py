@@ -18,6 +18,7 @@ from app.routers.pages import _eligible_reference_or_400
 from app.services.prompt_builder import build_prompt
 from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
+from app.services.print_spec import target_border_px, target_px_dimensions
 from app.services.vectorize import vectorize_page
 from app.services.versioning import record_version
 
@@ -59,6 +60,8 @@ async def generate_page(
 
     sg: StyleGuide | None = page.book.style_guide if page.book else None
     target_dpi = sg.target_dpi if sg else 300
+    width_px, height_px = target_px_dimensions(sg)
+    border_px = target_border_px(sg, target_dpi)
     built = build_prompt(page.concept, sg)
     positive = page.prompt or built[0]
     negative = page.negative_prompt or built[1]
@@ -88,6 +91,8 @@ async def generate_page(
             book_id=page.book_id,
             page_id=page_id,
             version=version_num,
+            width=width_px,
+            height=height_px,
             db=db,  # resolve provider+model from the global AppSettings
             reference_image_key=reference_image_key,
         )
@@ -98,7 +103,7 @@ async def generate_page(
 
     # Raster cleanup: threshold -> despeckle -> trim -> stamp DPI
     if body.auto_cleanup:
-        cleanup(abs_path, target_dpi=target_dpi)
+        cleanup(abs_path, target_dpi=target_dpi, border_px=border_px)
 
     # Analyse
     report = analyse(abs_path, target_dpi=target_dpi)
