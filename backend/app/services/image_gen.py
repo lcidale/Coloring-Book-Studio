@@ -46,6 +46,36 @@ def _mime_for_key(key: str) -> str:
     return _MIME_BY_EXT.get(ext, "application/octet-stream")
 
 
+# Aspect ratios Gemini's image generation API accepts (as of 2026). Passing an
+# unsupported string is rejected by the API, so callers must snap to one of
+# these rather than send an arbitrary page ratio.
+_GEMINI_ASPECT_RATIOS: dict[str, float] = {
+    "1:1": 1.0,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "4:5": 4 / 5,
+    "5:4": 5 / 4,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "21:9": 21 / 9,
+}
+
+
+def _aspect_ratio_bucket(width: int, height: int) -> str:
+    """Snap a pixel width/height to the nearest Gemini-supported aspect ratio.
+
+    Root cause of "images come out square": _generate_gemini never told the
+    model what aspect ratio to use, so it defaulted to 1:1 regardless of the
+    width/height the caller requested.
+    """
+    if not width or not height:
+        return "1:1"
+    ratio = width / height
+    return min(_GEMINI_ASPECT_RATIOS, key=lambda k: abs(_GEMINI_ASPECT_RATIOS[k] - ratio))
+
+
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
 
 # Emphatic lead phrase prepended to every positive prompt. Generation models
@@ -300,10 +330,14 @@ async def _generate_gemini(
         contents = [types.Part.from_bytes(data=ref_bytes, mime_type=ref_mime), prompt]
     else:
         contents = prompt
+    aspect_ratio = _aspect_ratio_bucket(width, height)
     response = await client.aio.models.generate_content(
         model=model,
         contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE", "TEXT"],
+            image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+        ),
     )
 
     image_bytes = _extract_image_bytes(response)

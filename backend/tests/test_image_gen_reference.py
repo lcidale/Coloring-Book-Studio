@@ -8,6 +8,65 @@ def test_mime_for_key():
     assert image_gen._mime_for_key("inspiration/x.webp") == "image/webp"
 
 
+def test_aspect_ratio_bucket_maps_page_size_to_nearest_supported_value():
+    # 8.5x11 (the current generate_line_art default) is closer to 3:4 (0.75)
+    # than any other Gemini-supported bucket.
+    assert image_gen._aspect_ratio_bucket(2550, 3300) == "3:4"
+    # 7.5x10 (the actual design content area after a 0.5in margin) is exactly 3:4.
+    assert image_gen._aspect_ratio_bucket(2250, 3000) == "3:4"
+    # Sanity: a literally square input maps to 1:1.
+    assert image_gen._aspect_ratio_bucket(1000, 1000) == "1:1"
+    # Landscape input maps to a landscape bucket.
+    assert image_gen._aspect_ratio_bucket(1920, 1080) == "16:9"
+
+
+async def test_generate_gemini_requests_the_correct_aspect_ratio(monkeypatch):
+    """The root cause of 'I keep getting square images': _generate_gemini never
+    told Gemini what aspect ratio to generate, so the model defaulted to 1:1
+    regardless of the width/height the caller asked for."""
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key-for-test")
+
+    from google import genai
+    from google.genai import types
+
+    captured = {}
+
+    class FakePart:
+        inline_data = type("Blob", (), {"data": b"\x89PNG\r\n\x1a\n" + b"0" * 8})()
+
+    class FakeContent:
+        parts = [FakePart()]
+
+    class FakeCandidate:
+        content = FakeContent()
+
+    class FakeResponse:
+        candidates = [FakeCandidate()]
+
+    class FakeModels:
+        async def generate_content(self, *, model, contents, config):
+            captured["config"] = config
+            return FakeResponse()
+
+    class FakeAio:
+        models = FakeModels()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.aio = FakeAio()
+
+    monkeypatch.setattr(genai, "Client", FakeClient)
+
+    await image_gen._generate_gemini(
+        "a fox", "", width=2550, height=3300, model="gemini-2.5-flash-image"
+    )
+
+    config = captured["config"]
+    assert isinstance(config, types.GenerateContentConfig)
+    assert config.image_config is not None, "must set image_config so Gemini isn't left to default to square"
+    assert config.image_config.aspect_ratio == "3:4"
+
+
 async def test_generate_line_art_passes_reference_to_gemini(monkeypatch, tmp_path):
     # storage.get_bytes returns fake reference bytes; capture what _generate_gemini receives
     from app.services import storage
