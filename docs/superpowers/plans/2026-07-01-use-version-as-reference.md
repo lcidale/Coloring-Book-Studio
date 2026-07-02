@@ -35,7 +35,7 @@
 - Consumes: `_attach_reference(page, db)`, `_page_dict(page)` (both already exist in `pages.py`); `storage.get_bytes`, `storage.put_bytes` (`backend/app/services/storage.py`); `InspirationImage` model.
 - Produces: `POST /api/pages/{page_id}/versions/{version_id}/use-as-reference`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `backend/tests/test_reference_image.py` (it already has `_book_page`, `_upload_inspiration` helpers and the `client` fixture):
 
@@ -97,12 +97,12 @@ async def test_use_version_as_reference_404_unknown_page(client: AsyncClient):
     assert r.status_code == 404
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run --directory backend pytest tests/test_reference_image.py -k use_version_as_reference -v`
 Expected: FAIL — 404/405 (route doesn't exist yet).
 
-- [ ] **Step 3: Implement the endpoint**
+- [x] **Step 3: Implement the endpoint**
 
 In `backend/app/routers/pages.py`, add the route immediately after `restore_version` (after the line `return _page_dict(page)` that closes it, before the blank lines leading into `@router.get("/{page_id}/versions")`). Add `import uuid` to the top-level imports if not already present (check first — `pages.py` currently does not import `uuid`).
 
@@ -146,17 +146,17 @@ async def use_version_as_reference(page_id: str, version_id: str, db: AsyncSessi
 
 (`InspirationImage` is already imported in `pages.py`'s top-level `from app.models import ...` line — verify and use as-is. `uuid` needs adding to the imports at the top of the file: `import uuid` alongside the existing `from __future__ import annotations`.)
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run --directory backend pytest tests/test_reference_image.py -k use_version_as_reference -v`
 Expected: PASS (all 4 new tests).
 
-- [ ] **Step 5: Full backend suite**
+- [x] **Step 5: Full backend suite**
 
 Run: `uv run --directory backend pytest -q`
 Expected: all pass, no regressions.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/routers/pages.py backend/tests/test_reference_image.py
@@ -176,7 +176,7 @@ git commit -m "feat(api): one-click use-version-as-reference endpoint"
 - Consumes: `apiFetch`, `Page` type (both already in `api.ts`).
 - Produces: `useUseVersionAsReference(pageId: string)` — `useMutation<Page, Error, string>` where the mutate argument is `versionId`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Read `frontend/src/features/editor/__tests__/VersionsPanel.test.tsx` first to match its existing fetch-mock/provider style exactly (it already mocks `useVersions`/`useRestoreVersion`/`useUpdateVersion`/`useDeleteVersion` via `vi.mock('@/lib/api', ...)` — confirm the exact mock shape before adding to it). Add:
 
@@ -197,12 +197,12 @@ it("calls useUseVersionAsReference with the version id when clicked", async () =
 
 (Match the exact `renderPanel`/mock-versions fixture already present in the file — `v2` is the first/current version in the existing `VERSIONS` fixture per the file's established pattern; adjust the id literal to whatever that fixture actually uses if different from `"v2"`.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --dir frontend test --run --pool=forks --no-file-parallelism src/features/editor/__tests__/VersionsPanel.test.tsx`
 Expected: FAIL — `useUseVersionAsReference` not exported / button not found.
 
-- [ ] **Step 3: Add the hook to api.ts**
+- [x] **Step 3: Add the hook to api.ts**
 
 In `frontend/src/lib/api.ts`, add immediately after `useRestoreVersion`'s closing brace:
 
@@ -222,7 +222,7 @@ export function useUseVersionAsReference(pageId: string) {
 }
 ```
 
-- [ ] **Step 4: Add the button to VersionsPanel.tsx**
+- [x] **Step 4: Add the button to VersionsPanel.tsx**
 
 In `frontend/src/features/editor/VersionsPanel.tsx`, add `useUseVersionAsReference` to the import from `@/lib/api`, instantiate it alongside the other version hooks, and add the button to the per-row action row:
 
@@ -237,17 +237,17 @@ import { useVersions, useRestoreVersion, useUpdateVersion, useDeleteVersion, use
                 <Button size="sm" variant="outline" disabled={useAsReference.isPending} onClick={() => useAsReference.mutate(v.id)}>Use as reference</Button>
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `pnpm --dir frontend test --run --pool=forks --no-file-parallelism src/features/editor/`
 Expected: PASS.
 
-- [ ] **Step 6: Typecheck + build**
+- [x] **Step 6: Typecheck + build**
 
 Run: `pnpm --dir frontend exec tsc --noEmit && pnpm --dir frontend build`
 Expected: clean, exit 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/lib/api.ts frontend/src/features/editor/VersionsPanel.tsx frontend/src/features/editor/__tests__/VersionsPanel.test.tsx
@@ -258,9 +258,9 @@ git commit -m "feat(web): one-click use-version-as-reference button in Versions 
 
 ## Task 3: Full verification
 
-- [ ] **Step 1:** `uv run --directory backend pytest -q` → all pass.
-- [ ] **Step 2:** `pnpm --dir frontend test --run --pool=forks --no-file-parallelism` → all pass.
-- [ ] **Step 3:** `pnpm --dir frontend exec tsc --noEmit && pnpm --dir frontend build` → clean, exit 0.
+- [x] **Step 1:** `uv run --directory backend pytest -q` → all pass.
+- [x] **Step 2:** `pnpm --dir frontend test --run --pool=forks --no-file-parallelism` → all pass.
+- [x] **Step 3:** `pnpm --dir frontend exec tsc --noEmit && pnpm --dir frontend build` → clean, exit 0.
 - [ ] **Step 4 (manual smoke):** generate a page twice, open the Versions panel, click "Use as reference" on v1, confirm the editor's Reference control shows the new thumbnail immediately, confirm it also appears in that book's Inspiration section, then delete v1 and confirm the reference is unaffected.
 
 ---
