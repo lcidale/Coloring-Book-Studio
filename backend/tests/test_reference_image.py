@@ -224,3 +224,60 @@ async def test_restore_version_response_includes_reference_image_url(client: Asy
     assert r.json()["reference_image_url"] is not None, (
         "restore response must include reference_image_url when a reference is set"
     )
+
+
+async def test_use_version_as_reference_sets_sticky_reference(client: AsyncClient):
+    book_id, page = await _book_page(client)
+    gen = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert gen.status_code == 200
+    versions = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    v1_id = versions[0]["id"]
+
+    r = await client.post(f"/api/pages/{page['id']}/versions/{v1_id}/use-as-reference")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reference_image_id"] is not None
+    assert body["reference_image_url"] is not None
+
+    # the new inspiration image is scoped to this page's book
+    listed = (await client.get(f"/api/inspiration?book_id={book_id}")).json()
+    assert any(img["id"] == body["reference_image_id"] for img in listed)
+
+
+async def test_use_version_as_reference_copies_bytes_independently(client: AsyncClient):
+    """Deleting the SOURCE version afterward must not affect the new reference —
+    proves the new inspiration image has its own storage object, not a shared key."""
+    from app.services import storage as storage_svc
+
+    book_id, page = await _book_page(client)
+    gen1 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    gen2 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert gen1.status_code == 200 and gen2.status_code == 200
+    versions = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    v1_id = next(v["id"] for v in versions if v["version_num"] == 1)  # not current (v2 is)
+
+    r = await client.post(f"/api/pages/{page['id']}/versions/{v1_id}/use-as-reference")
+    assert r.status_code == 200
+    ref_url = r.json()["reference_image_url"]
+    ref_key = "inspiration/" + ref_url.rsplit("/inspiration/", 1)[1]
+    assert storage_svc.exists(ref_key)
+
+    del_resp = await client.delete(f"/api/pages/{page['id']}/versions/{v1_id}")
+    assert del_resp.status_code == 204
+
+    refreshed = (await client.get(f"/api/pages/{page['id']}")).json()
+    assert refreshed["reference_image_id"] == r.json()["reference_image_id"], (
+        "the reference must survive deletion of the source version"
+    )
+    assert storage_svc.exists(ref_key), "the new inspiration image's own file must be untouched"
+
+
+async def test_use_version_as_reference_404_unknown_version(client: AsyncClient):
+    _, page = await _book_page(client)
+    r = await client.post(f"/api/pages/{page['id']}/versions/nope/use-as-reference")
+    assert r.status_code == 404
+
+
+async def test_use_version_as_reference_404_unknown_page(client: AsyncClient):
+    r = await client.post("/api/pages/nope/versions/nope/use-as-reference")
+    assert r.status_code == 404

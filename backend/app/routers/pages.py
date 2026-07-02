@@ -1,4 +1,5 @@
 from __future__ import annotations
+import uuid
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -249,6 +250,43 @@ async def restore_version(page_id: str, version_id: str, db: AsyncSession = Depe
     page.image_height_px = pv.height_px
     if pv.is_pure_bw is not None:
         page.is_pure_bw = pv.is_pure_bw
+    page.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(page)
+    await _attach_reference(page, db)
+    return _page_dict(page)
+
+
+@router.post("/{page_id}/versions/{version_id}/use-as-reference")
+async def use_version_as_reference(page_id: str, version_id: str, db: AsyncSession = Depends(get_db)):
+    """Copy a version's image into a new, independent inspiration image scoped to
+    this page's book, and set it as the page's sticky reference — one click,
+    no manual download/re-upload. The copy is deliberate: never reuse the
+    version's own storage key, since delete_version assumes each version's
+    image_path is exclusively its own."""
+    result = await db.execute(
+        select(Page)
+        .options(selectinload(Page.text_layers), selectinload(Page.versions))
+        .where(Page.id == page_id)
+    )
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(404, "Page not found")
+
+    pv = next((v for v in page.versions if v.id == version_id), None)
+    if pv is None:
+        raise HTTPException(404, "Version not found")
+
+    data = storage.get_bytes(pv.image_path)
+    ext = pv.image_path.rsplit(".", 1)[-1] if "." in pv.image_path else "png"
+    new_key = f"inspiration/{uuid.uuid4()}.{ext}"
+    storage.put_bytes(new_key, data, "image/png")
+
+    img = InspirationImage(book_id=page.book_id, image_path=new_key)
+    db.add(img)
+    await db.flush()
+
+    page.reference_image_id = img.id
     page.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(page)
