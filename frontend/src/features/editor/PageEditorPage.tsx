@@ -14,7 +14,7 @@ import {
   useBook,
   useUpdatePage,
   useGeneratePage,
-  useInspiration,
+  useEligibleReferenceImages,
   useJob,
   useRefineConcept,
   useWritePrompt,
@@ -23,7 +23,6 @@ import {
   useDeleteTextLayer,
   pageImageSrc,
   type Page,
-  type InspirationImage,
   type PageStatus,
 } from "@/lib/api"
 import { VersionsPanel } from "./VersionsPanel"
@@ -108,13 +107,8 @@ function GenerateSection({ page }: { page: Page }) {
   const { data: job } = useJob(activeJobId)
   const updatePage = useUpdatePage()
 
-  // Per-run reference override
-  const bookImages = useInspiration(page.book_id)
-  const globalImages = useInspiration("global")
-  const eligible: InspirationImage[] = [
-    ...(bookImages.data ?? []),
-    ...(globalImages.data ?? []),
-  ]
+  // Per-run reference override (shared eligible-image logic — ce-review #10)
+  const eligible = useEligibleReferenceImages(page.book_id)
   const [overrideRefId, setOverrideRefId] = React.useState<string | undefined>(undefined)
 
   React.useEffect(() => {

@@ -6,6 +6,7 @@ patched STORAGE_DIR, faked image generation).
 """
 from __future__ import annotations
 
+import asyncio
 import pytest
 from httpx import AsyncClient
 
@@ -166,3 +167,83 @@ async def test_delete_book_removes_version_storage(client: AsyncClient):
     r = await client.delete(f"/api/books/{book['id']}")
     assert r.status_code == 204
     assert not storage_svc.exists(image_path), "storage object must be removed after book delete"
+
+
+async def test_delete_middle_version_then_regenerate_does_not_collide(client: AsyncClient):
+    """ce-review #1 (P0): version_num must never be reused after a middle version
+    is deleted, or the new generation overwrites a surviving version's file."""
+    _, page = await _make_book_and_page(client)
+
+    v1 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    v2 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    v3 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert [v1.json()["version"], v2.json()["version"], v3.json()["version"]] == [1, 2, 3]
+
+    versions_before = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    v2_id = next(v["id"] for v in versions_before if v["version_num"] == 2)
+
+    r = await client.delete(f"/api/pages/{page['id']}/versions/{v2_id}")
+    assert r.status_code == 204
+
+    v4 = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert v4.json()["version"] == 4, "must not reuse version_num=3, which the surviving v3 row still holds"
+
+    versions_after = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    nums = [v["version_num"] for v in versions_after]
+    assert sorted(nums) == [1, 3, 4], "no duplicate version_num across surviving rows"
+    assert len(set(v["image_path"] if "image_path" in v else v["image_url"] for v in versions_after)) == 3, (
+        "every surviving version must have a distinct image (no overwrite)"
+    )
+
+
+async def test_delete_page_cascades_generation_jobs(client: AsyncClient):
+    """ce-review #2 (P0): a page that was generated at least once has a
+    GenerationJob row; deleting the page must remove it too (Page.generation_jobs
+    cascade), not just succeed by accident because SQLite doesn't enforce FKs."""
+    _, page = await _make_book_and_page(client)
+
+    gen_resp = await client.post(
+        f"/api/pages/{page['id']}/generate",
+        json={"auto_cleanup": False, "vectorize": False},
+    )
+    assert gen_resp.status_code == 202
+    job_id = gen_resp.json()["job_id"]
+
+    for _ in range(20):
+        await asyncio.sleep(0.15)
+        job_resp = await client.get(f"/api/jobs/{job_id}")
+        if job_resp.json()["status"] in ("done", "failed"):
+            break
+    assert job_resp.json()["status"] == "done"
+
+    r = await client.delete(f"/api/pages/{page['id']}")
+    assert r.status_code == 204
+
+    # The job row itself must be gone — not just orphaned — proving the ORM
+    # cascade actually ran (a bare 204 would pass even without the fix, since
+    # SQLite doesn't enforce the FK either way).
+    after = await client.get(f"/api/jobs/{job_id}")
+    assert after.status_code == 404
+
+
+async def test_delete_book_cascades_generation_jobs(client: AsyncClient):
+    """Same as above, via the book-delete path."""
+    book, page = await _make_book_and_page(client)
+
+    gen_resp = await client.post(
+        f"/api/pages/{page['id']}/generate",
+        json={"auto_cleanup": False, "vectorize": False},
+    )
+    job_id = gen_resp.json()["job_id"]
+    for _ in range(20):
+        await asyncio.sleep(0.15)
+        job_resp = await client.get(f"/api/jobs/{job_id}")
+        if job_resp.json()["status"] in ("done", "failed"):
+            break
+    assert job_resp.json()["status"] == "done"
+
+    r = await client.delete(f"/api/books/{book['id']}")
+    assert r.status_code == 204
+
+    after = await client.get(f"/api/jobs/{job_id}")
+    assert after.status_code == 404

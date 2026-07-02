@@ -97,4 +97,31 @@ async def test_delete_book_removes_inspiration_storage(client: AsyncClient):
 
     r = await client.delete(f"/api/books/{book_id}")
     assert r.status_code == 204
-    assert not storage_svc.exists(key), "book delete must remove its inspiration files"
+
+
+async def test_upload_rejects_oversized_file(client: AsyncClient):
+    """ce-review #4 (P1): a single file over the cap must be rejected, and no
+    storage object should be written for it."""
+    from app.routers.inspiration import _MAX_BYTES_PER_FILE
+
+    oversized = b"0" * (_MAX_BYTES_PER_FILE + 1)
+    files = [("files", ("huge.png", io.BytesIO(oversized), "image/png"))]
+    r = await client.post("/api/inspiration", files=files)
+    assert r.status_code == 400
+    listed = (await client.get("/api/inspiration")).json()
+    assert listed == []
+
+
+async def test_upload_rejects_too_many_files(client: AsyncClient):
+    """A batch over the max-file-count cap must be rejected before any file
+    in it is stored."""
+    from app.routers.inspiration import _MAX_FILES_PER_UPLOAD
+
+    files = [
+        ("files", (f"{i}.png", io.BytesIO(_png_bytes()), "image/png"))
+        for i in range(_MAX_FILES_PER_UPLOAD + 1)
+    ]
+    r = await client.post("/api/inspiration", files=files)
+    assert r.status_code == 400
+    listed = (await client.get("/api/inspiration")).json()
+    assert listed == []

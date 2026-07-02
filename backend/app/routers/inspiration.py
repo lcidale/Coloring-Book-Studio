@@ -20,6 +20,12 @@ _ALLOWED_TYPES: dict[str, str] = {
     "image/gif": "gif",
 }
 
+# ce-review #4: this endpoint has no auth and the app has no body-size middleware
+# (bare uvicorn, CORS allow_origins="*"), so it needs its own caps — mirrors the
+# _MAX_BYTES pattern already used by the /documents/ocr upload endpoint.
+_MAX_BYTES_PER_FILE = 20 * 1024 * 1024  # 20 MB
+_MAX_FILES_PER_UPLOAD = 20
+
 
 class InspirationUpdate(BaseModel):
     caption: Optional[str] = None
@@ -47,14 +53,26 @@ async def upload_inspiration(
         if not await db.get(Book, book_id):
             raise HTTPException(404, "Book not found")
 
-    # Validate every file's type BEFORE storing any, so a bad file in the batch
-    # doesn't leave orphaned objects from earlier files.
+    if len(files) > _MAX_FILES_PER_UPLOAD:
+        raise HTTPException(
+            400, f"Too many files ({len(files)}). Maximum is {_MAX_FILES_PER_UPLOAD} per upload."
+        )
+
+    # Validate every file's type and size BEFORE storing any, so a bad file in
+    # the batch doesn't leave orphaned objects from earlier files.
     payloads: list[tuple[str, bytes, str]] = []  # (ext, data, content_type)
     for f in files:
         ext = _ALLOWED_TYPES.get(f.content_type or "")
         if not ext:
             raise HTTPException(400, f"Unsupported image type: {f.content_type}")
-        payloads.append((ext, await f.read(), f.content_type or "application/octet-stream"))
+        data = await f.read()
+        if len(data) > _MAX_BYTES_PER_FILE:
+            raise HTTPException(
+                400,
+                f"{f.filename or 'file'} is too large ({len(data):,} bytes). "
+                f"Maximum is {_MAX_BYTES_PER_FILE // (1024 * 1024)} MB per file.",
+            )
+        payloads.append((ext, data, f.content_type or "application/octet-stream"))
 
     created: list[InspirationImage] = []
     for ext, data, content_type in payloads:
@@ -95,6 +113,15 @@ async def update_inspiration(image_id: str, body: InspirationUpdate, db: AsyncSe
         if body.book_id is not None and not await db.get(Book, body.book_id):
             raise HTTPException(404, "Book not found")
         img.book_id = body.book_id
+        if body.book_id is not None:
+            # Scoping this image to a specific book invalidates any existing page
+            # reference from a DIFFERENT book (it was only valid while the image
+            # was global). Null those out now so they don't dangle — ce-review #5.
+            await db.execute(
+                update(Page)
+                .where(Page.reference_image_id == image_id, Page.book_id != body.book_id)
+                .values(reference_image_id=None)
+            )
     await db.commit()
     await db.refresh(img)
     return _dict(img)
@@ -109,6 +136,6 @@ async def delete_inspiration(image_id: str, db: AsyncSession = Depends(get_db)):
         update(Page).where(Page.reference_image_id == image_id).values(reference_image_id=None)
     )
     if img.image_path:
-        storage.delete_object(img.image_path)
+        storage.delete_object_best_effort(img.image_path)
     await db.delete(img)
     await db.commit()

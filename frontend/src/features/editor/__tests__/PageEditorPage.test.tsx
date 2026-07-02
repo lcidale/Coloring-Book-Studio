@@ -30,7 +30,7 @@ vi.mock('@/lib/api', () => ({
   useRestoreVersion: vi.fn(),
   useUpdateVersion: vi.fn(),
   useDeleteVersion: vi.fn(),
-  useInspiration: vi.fn(),
+  useEligibleReferenceImages: vi.fn(),
   exportBookPdf: vi.fn(),
   pageImageSrc: (p: string) => `/storage/${p}`,
 }))
@@ -169,11 +169,7 @@ function setupDefaultMocks() {
     makeMutation() as ReturnType<typeof api.useDeleteVersion>
   )
 
-  vi.mocked(api.useInspiration).mockReturnValue({
-    data: [],
-    isLoading: false,
-    isError: false,
-  } as unknown as ReturnType<typeof api.useInspiration>)
+  vi.mocked(api.useEligibleReferenceImages).mockReturnValue([])
 }
 
 function createWrapper() {

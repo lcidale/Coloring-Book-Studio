@@ -147,6 +147,9 @@ class Page(Base):
     text_layers: Mapped[List["TextLayer"]] = relationship(
         "TextLayer", back_populates="page", cascade="all, delete-orphan"
     )
+    generation_jobs: Mapped[List["GenerationJob"]] = relationship(
+        "GenerationJob", cascade="all, delete-orphan"
+    )
     versions: Mapped[List["PageVersion"]] = relationship(
         "PageVersion", back_populates="page", cascade="all, delete-orphan",
         order_by="PageVersion.created_at"

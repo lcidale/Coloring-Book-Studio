@@ -198,6 +198,7 @@ async def delete_book(book_id: str, db: AsyncSession = Depends(get_db)):
         select(Book)
         .options(
             selectinload(Book.pages).selectinload(Page.versions),
+            selectinload(Book.pages).selectinload(Page.generation_jobs),
             selectinload(Book.inspiration_images),
         )
         .where(Book.id == book_id)
@@ -205,20 +206,27 @@ async def delete_book(book_id: str, db: AsyncSession = Depends(get_db)):
     book = result.scalar_one_or_none()
     if not book:
         raise HTTPException(404, "Book not found")
-    # delete page-version storage objects
+    # delete page-version storage objects (best-effort: one failure must not
+    # abort the whole cascade and leave the DB delete unable to run — ce-review #6)
     for page in book.pages:
         for v in page.versions:
             for key in (v.image_path, v.svg_path):
                 if key:
-                    storage.delete_object(key)
+                    storage.delete_object_best_effort(key)
     # delete inspiration storage objects
     for img in book.inspiration_images:
         if img.image_path:
-            storage.delete_object(img.image_path)
+            storage.delete_object_best_effort(img.image_path)
     # Null any page reference pointing at this book's inspiration images before the
-    # cascade delete, so the page→inspiration_image FK can't be violated by delete ordering.
-    await db.execute(
-        update(Page).where(Page.book_id == book_id).values(reference_image_id=None)
-    )
+    # cascade delete, so the page→inspiration_image FK can't be violated by delete
+    # ordering. Scoped to the inspiration image ids themselves (not Page.book_id),
+    # so a page in a DIFFERENT book that still references one of this book's images
+    # (e.g. via a stale reference left over from a book_id reassignment) is also
+    # cleared — ce-review #5.
+    img_ids = [img.id for img in book.inspiration_images]
+    if img_ids:
+        await db.execute(
+            update(Page).where(Page.reference_image_id.in_(img_ids)).values(reference_image_id=None)
+        )
     await db.delete(book)
     await db.commit()

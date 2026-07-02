@@ -74,6 +74,23 @@ async def _attach_reference(page: Page, db: AsyncSession) -> None:
     )
 
 
+async def _attach_references(pages: list[Page], db: AsyncSession) -> None:
+    """Batched sibling of _attach_reference for multi-page responses (list/reorder).
+
+    One IN(...) query for all distinct reference_image_ids instead of one query
+    per page — ce-review #7 (N+1 in list_pages)."""
+    from app.models import InspirationImage
+    ids = {p.reference_image_id for p in pages if p.reference_image_id}
+    if not ids:
+        for p in pages:
+            p._reference_image = None
+        return
+    rows = (await db.execute(select(InspirationImage).where(InspirationImage.id.in_(ids)))).scalars().all()
+    by_id = {img.id: img for img in rows}
+    for p in pages:
+        p._reference_image = by_id.get(p.reference_image_id)
+
+
 def _page_dict(page: Page) -> dict:
     return {
         "id": page.id,
@@ -154,8 +171,7 @@ async def list_pages(book_id: str, db: AsyncSession = Depends(get_db)):
         .order_by(Page.sort_order)
     )
     pages = result.scalars().all()
-    for p in pages:
-        await _attach_reference(p, db)
+    await _attach_references(pages, db)
     return [_page_dict(p) for p in pages]
 
 
@@ -192,7 +208,9 @@ async def reorder_pages(book_id: str, body: ReorderIn, db: AsyncSession = Depend
     for idx, pid in enumerate(body.page_ids):
         pages[pid].sort_order = idx
     await db.commit()
-    return [_page_dict(pages[pid]) for pid in body.page_ids]
+    ordered = [pages[pid] for pid in body.page_ids]
+    await _attach_references(ordered, db)
+    return [_page_dict(p) for p in ordered]
 
 
 @router.get("/{page_id}")
@@ -234,6 +252,7 @@ async def restore_version(page_id: str, version_id: str, db: AsyncSession = Depe
     page.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(page)
+    await _attach_reference(page, db)
     return _page_dict(page)
 
 
@@ -322,16 +341,18 @@ async def update_page(page_id: str, body: PageUpdate, db: AsyncSession = Depends
 @router.delete("/{page_id}", status_code=204)
 async def delete_page(page_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Page).options(selectinload(Page.versions)).where(Page.id == page_id)
+        select(Page)
+        .options(selectinload(Page.versions), selectinload(Page.generation_jobs))
+        .where(Page.id == page_id)
     )
     page = result.scalar_one_or_none()
     if not page:
         raise HTTPException(404, "Page not found")
     for v in page.versions:
         if v.image_path:
-            storage.delete_object(v.image_path)
+            storage.delete_object_best_effort(v.image_path)
         if v.svg_path:
-            storage.delete_object(v.svg_path)
+            storage.delete_object_best_effort(v.svg_path)
     await db.delete(page)
     await db.commit()
 

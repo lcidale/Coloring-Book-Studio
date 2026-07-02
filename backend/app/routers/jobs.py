@@ -24,12 +24,12 @@ from app.database import SessionLocal, get_db
 from app.models import (
     Book,
     GenerationJob,
-    InspirationImage,
     JobStatus,
     Page,
     PageStatus,
     StyleGuide,
 )
+from app.routers.pages import _eligible_reference_or_400
 from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
 from app.services.prompt_builder import build_prompt
@@ -73,13 +73,12 @@ async def enqueue_generation(
     if not page.concept:
         raise HTTPException(400, "Page has no concept — add a concept before generating")
 
-    # Resolve effective reference image synchronously (so bad overrides return 400 now)
+    # Resolve effective reference image synchronously (so bad overrides return 400
+    # now, before enqueueing). Shared eligibility rule — ce-review #9.
     effective_ref_id = body.reference_image_id or page.reference_image_id
     reference_image_key = None
     if effective_ref_id:
-        ref = await db.get(InspirationImage, effective_ref_id)
-        if ref is None or (ref.book_id is not None and ref.book_id != page.book_id):
-            raise HTTPException(400, "Reference image is not available for this page")
+        ref = await _eligible_reference_or_400(effective_ref_id, page, db)
         reference_image_key = ref.image_path
 
     job = GenerationJob(page_id=page_id, status=JobStatus.queued)
@@ -168,7 +167,10 @@ async def _generate(
     page.negative_prompt = negative
     page.status = PageStatus.generated
 
-    version_num = len(page.versions) + 1
+    # Derived from the max surviving version_num, not the row count — a deleted
+    # middle version must never free up a number that collides with a survivor's
+    # storage key (see docs/superpowers/plans/2026-07-01-ce-review-fixes.md #1).
+    version_num = max((v.version_num for v in page.versions), default=0) + 1
 
     rel_path = await generate_line_art(
         positive_prompt=positive,

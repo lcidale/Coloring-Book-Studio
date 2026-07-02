@@ -25,9 +25,12 @@ URL is <R2_PUBLIC_BASE_URL>/<key>.
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Union
+
+_log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -211,6 +214,19 @@ def delete_object(key: str) -> None:
         _r2_delete(key)
     else:
         _local_delete(key)
+
+
+def delete_object_best_effort(key: str) -> None:
+    """Delete an object, logging and swallowing any failure instead of raising.
+
+    For cascade-delete loops (book/page/inspiration-image deletion) where one
+    transient storage failure (a network blip on R2, a permissions issue on one
+    file) must not abort the whole delete and leave the DB row un-deletable.
+    """
+    try:
+        delete_object(key)
+    except Exception:  # noqa: BLE001 — best-effort cleanup, never blocks the caller
+        _log.warning("failed to delete storage object %s during cascade delete", key, exc_info=True)
 
 
 def public_url(key: str) -> str:

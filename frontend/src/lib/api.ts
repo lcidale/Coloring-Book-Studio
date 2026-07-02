@@ -621,6 +621,22 @@ export function useInspiration(scope: string) {
   })
 }
 
+/**
+ * Images eligible as a page's generation reference for a given book: this
+ * book's inspiration images plus global ones, deduplicated by id (ce-review
+ * #10 — this merge was previously reimplemented inconsistently in two places).
+ */
+export function useEligibleReferenceImages(bookId: string): InspirationImage[] {
+  const bookImages = useInspiration(bookId)
+  const globalImages = useInspiration("global")
+  const seen = new Set<string>()
+  return [...(bookImages.data ?? []), ...(globalImages.data ?? [])].filter((img) => {
+    if (seen.has(img.id)) return false
+    seen.add(img.id)
+    return true
+  })
+}
+
 export function useUploadInspiration() {
   const qc = useQueryClient()
   return useMutation<InspirationImage[], Error, { files: File[]; bookId?: string | null; caption?: string }>({

@@ -1,23 +1,12 @@
 // frontend/src/features/editor/ReferencePicker.tsx
 import { useState } from "react"
-import { useInspiration, useUpdatePage, pageImageSrc, type Page, type InspirationImage } from "@/lib/api"
+import { useEligibleReferenceImages, useUpdatePage, pageImageSrc, type Page } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
 export function ReferencePicker({ page }: { page: Page }) {
   const update = useUpdatePage()
-  const bookImages = useInspiration(page.book_id)
-  const globalImages = useInspiration("global")
+  const eligible = useEligibleReferenceImages(page.book_id)
   const [open, setOpen] = useState(false)
-
-  const seen = new Set<string>()
-  const eligible: InspirationImage[] = [
-    ...(bookImages.data ?? []),
-    ...(globalImages.data ?? []),
-  ].filter((img) => {
-    if (seen.has(img.id)) return false
-    seen.add(img.id)
-    return true
-  })
 
   function choose(id: string | null) {
     update.mutate({ id: page.id, reference_image_id: id })

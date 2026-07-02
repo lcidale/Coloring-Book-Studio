@@ -147,3 +147,80 @@ async def test_delete_book_with_referenced_image_ok(client: AsyncClient):
     assert r.json()["reference_image_id"] == img["id"]
     r = await client.delete(f"/api/books/{book_id}")
     assert r.status_code == 204
+
+
+async def test_reassigning_image_to_another_book_clears_cross_book_reference(client: AsyncClient):
+    """ce-review #5 (P1): a page in book B holds a global image as its sticky
+    reference (valid at the time). Reassigning that image to book A must clear
+    book B's now-invalid reference, not leave it dangling."""
+    book_b, page_b = await _book_page(client)
+    img = await _upload_inspiration(client)  # global at first
+    r = await client.patch(f"/api/pages/{page_b['id']}", json={"reference_image_id": img["id"]})
+    assert r.status_code == 200 and r.json()["reference_image_id"] == img["id"]
+
+    book_a, _ = await _book_page(client)
+    r = await client.patch(f"/api/inspiration/{img['id']}", json={"book_id": book_a})
+    assert r.status_code == 200
+
+    refreshed = (await client.get(f"/api/pages/{page_b['id']}")).json()
+    assert refreshed["reference_image_id"] is None, (
+        "page in book B must have its now-invalid cross-book reference cleared"
+    )
+
+
+async def test_delete_book_removes_cross_book_dangling_reference(client: AsyncClient):
+    """Companion to the above: even if a cross-book reference were to exist,
+    deleting the image's owning book must clean it up regardless of which
+    book the referencing page belongs to (not just Page.book_id == book_id)."""
+    book_b, page_b = await _book_page(client)
+    img = await _upload_inspiration(client)  # global
+    r = await client.patch(f"/api/pages/{page_b['id']}", json={"reference_image_id": img["id"]})
+    assert r.status_code == 200
+
+    book_a, _ = await _book_page(client)
+    await client.patch(f"/api/inspiration/{img['id']}", json={"book_id": book_a})
+    # (the reassignment fix above already clears page_b's reference at this point;
+    # this test's real assertion is that deleting book_a — which now owns the
+    # image — never fails, and any residual reference from another book is gone.)
+
+    r = await client.delete(f"/api/books/{book_a}")
+    assert r.status_code == 204
+
+    refreshed = (await client.get(f"/api/pages/{page_b['id']}")).json()
+    assert refreshed["reference_image_id"] is None
+
+
+async def test_reorder_response_includes_reference_image_url(client: AsyncClient):
+    """ce-review #3 (P1): reorder_pages must not silently drop reference_image_url
+    from its response (it was previously missing the _attach_reference call)."""
+    book_id, page1 = await _book_page(client)
+    page2 = (await client.post(f"/api/pages/book/{book_id}", json={"concept": "bear", "sort_order": 1})).json()
+    img = await _upload_inspiration(client, book_id=book_id)
+    await client.patch(f"/api/pages/{page1['id']}", json={"reference_image_id": img["id"]})
+
+    r = await client.patch(f"/api/pages/book/{book_id}/reorder", json={"page_ids": [page2["id"], page1["id"]]})
+    assert r.status_code == 200
+    reordered_page1 = next(p for p in r.json() if p["id"] == page1["id"])
+    assert reordered_page1["reference_image_id"] == img["id"]
+    assert reordered_page1["reference_image_url"] is not None, (
+        "reorder response must include reference_image_url when a reference is set"
+    )
+
+
+async def test_restore_version_response_includes_reference_image_url(client: AsyncClient):
+    """Companion to the above for restore_version, which had the same gap."""
+    book_id, page = await _book_page(client)
+    img = await _upload_inspiration(client, book_id=book_id)
+    await client.patch(f"/api/pages/{page['id']}", json={"reference_image_id": img["id"]})
+
+    gen = await client.post(f"/api/generate/{page['id']}", json={"auto_cleanup": False, "vectorize": False})
+    assert gen.status_code == 200
+    versions = (await client.get(f"/api/pages/{page['id']}/versions")).json()
+    v1_id = versions[0]["id"]
+
+    r = await client.post(f"/api/pages/{page['id']}/versions/{v1_id}/restore")
+    assert r.status_code == 200
+    assert r.json()["reference_image_id"] == img["id"]
+    assert r.json()["reference_image_url"] is not None, (
+        "restore response must include reference_image_url when a reference is set"
+    )

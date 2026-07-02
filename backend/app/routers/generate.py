@@ -13,7 +13,8 @@ from sqlalchemy.orm import selectinload
 from typing import Optional
 
 from app.database import get_db
-from app.models import Book, InspirationImage, Page, PageStatus, StyleGuide
+from app.models import Book, Page, PageStatus, StyleGuide
+from app.routers.pages import _eligible_reference_or_400
 from app.services.prompt_builder import build_prompt
 from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
@@ -67,16 +68,16 @@ async def generate_page(
     page.negative_prompt = negative
     page.status = PageStatus.generated
 
-    # Version number
-    version_num = len(page.versions) + 1
+    # Derived from the max surviving version_num, not the row count — a deleted
+    # middle version must never free up a number that collides with a survivor's
+    # storage key.
+    version_num = max((v.version_num for v in page.versions), default=0) + 1
 
-    # Resolve effective reference image
+    # Resolve effective reference image (shared eligibility rule — ce-review #9)
     effective_ref_id = body.reference_image_id or page.reference_image_id
     reference_image_key = None
     if effective_ref_id:
-        ref = await db.get(InspirationImage, effective_ref_id)
-        if ref is None or (ref.book_id is not None and ref.book_id != page.book_id):
-            raise HTTPException(400, "Reference image is not available for this page")
+        ref = await _eligible_reference_or_400(effective_ref_id, page, db)
         reference_image_key = ref.image_path
 
     # Generate
