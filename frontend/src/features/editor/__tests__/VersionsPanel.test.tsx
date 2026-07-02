@@ -1,5 +1,5 @@
 // frontend/src/features/editor/__tests__/VersionsPanel.test.tsx
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, it, expect, vi, beforeEach } from "vitest"
@@ -11,9 +11,11 @@ const VERSIONS = [
 ]
 
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/pages/p1/versions")
       return new Response(JSON.stringify(VERSIONS), { status: 200, headers: { "content-type": "application/json" } })
+    if (url === "/api/pages/p1/versions/v1/use-as-reference" && init?.method === "POST")
+      return new Response(JSON.stringify({ id: "p1", book_id: "b1", reference_image_id: "i1" }), { status: 200, headers: { "content-type": "application/json" } })
     return new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
   }))
 })
@@ -49,5 +51,18 @@ describe("VersionsPanel", () => {
     const del = screen.getAllByRole("button", { name: /delete version/i })
     // v2 is current → its delete is disabled
     expect(del[0]).toBeDisabled()
+  })
+
+  it("calls use-as-reference with the clicked version's id", async () => {
+    renderPanel()
+    await screen.findByText("v1")
+    const buttons = screen.getAllByRole("button", { name: /use as reference/i })
+    await userEvent.click(buttons[1]) // v1's row
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/pages/p1/versions/v1/use-as-reference",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    )
   })
 })

@@ -380,6 +380,20 @@ export function useRestoreVersion(pageId: string) {
   })
 }
 
+export function useUseVersionAsReference(pageId: string) {
+  const qc = useQueryClient()
+  return useMutation<Page, Error, string>({
+    mutationFn: (versionId) =>
+      apiFetch<Page>(`/pages/${pageId}/versions/${versionId}/use-as-reference`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: (page) => {
+      void qc.invalidateQueries({ queryKey: ["versions", pageId] })
+      void qc.invalidateQueries({ queryKey: ["pages", "detail", pageId] })
+      void qc.invalidateQueries({ queryKey: ["pages", page.book_id] })
+      void qc.invalidateQueries({ queryKey: ["inspiration"] })
+    },
+  })
+}
+
 export function useUpdateVersion(pageId: string) {
   const qc = useQueryClient()
   return useMutation<PageVersion, Error, { versionId: string; label?: string; notes?: string }>({

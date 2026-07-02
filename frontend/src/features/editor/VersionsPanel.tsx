@@ -1,6 +1,6 @@
 // frontend/src/features/editor/VersionsPanel.tsx
 import { useState } from "react"
-import { useVersions, useRestoreVersion, useUpdateVersion, useDeleteVersion, pageImageSrc } from "@/lib/api"
+import { useVersions, useRestoreVersion, useUpdateVersion, useDeleteVersion, useUseVersionAsReference, pageImageSrc } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
 export function VersionsPanel({ pageId, onCopyPrompt }: { pageId: string; onCopyPrompt: (prompt: string) => void }) {
@@ -8,6 +8,7 @@ export function VersionsPanel({ pageId, onCopyPrompt }: { pageId: string; onCopy
   const restore = useRestoreVersion(pageId)
   const update = useUpdateVersion(pageId)
   const del = useDeleteVersion(pageId)
+  const useAsReference = useUseVersionAsReference(pageId)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading versions…</p>
@@ -44,6 +45,7 @@ export function VersionsPanel({ pageId, onCopyPrompt }: { pageId: string; onCopy
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" aria-label={`Copy prompt from v${v.version_num}`} onClick={() => onCopyPrompt(v.prompt)}>Copy prompt</Button>
                 <Button size="sm" variant="outline" disabled={v.is_current || restore.isPending} onClick={() => restore.mutate(v.id)}>Restore as current</Button>
+                <Button size="sm" variant="outline" disabled={useAsReference.isPending} onClick={() => useAsReference.mutate(v.id)}>Use as reference</Button>
                 <Button size="sm" variant="outline" aria-label={`Delete version v${v.version_num}`} disabled={v.is_current || del.isPending} onClick={() => del.mutate(v.id)}>Delete</Button>
               </div>
             </div>
