@@ -27,7 +27,7 @@ class StyleGuideIn(BaseModel):
     trim_width_in: float = 8.5
     trim_height_in: float = 11.0
     bleed_in: float = 0.125
-    margin_in: float = 0.5
+    margin_in: float = 0.125
     target_dpi: int = 300
     binding_gutter_in: float = 0.0
     binding_edge: str = "left"

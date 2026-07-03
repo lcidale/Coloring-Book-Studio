@@ -125,7 +125,7 @@ def export_book_pdf(
     trim_w = sg.trim_width_in if sg else 8.5
     trim_h = sg.trim_height_in if sg else 11.0
     bleed = sg.bleed_in if sg else 0.125
-    margin = sg.margin_in if sg else 0.5
+    margin = sg.margin_in if sg else 0.125
     binding_gutter = sg.binding_gutter_in if sg else 0.0
     binding_edge = sg.binding_edge if sg else "left"
 

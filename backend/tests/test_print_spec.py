@@ -18,8 +18,11 @@ class TestTargetPxDimensions:
 
 
 class TestTargetBorderPx:
-    def test_defaults_to_half_inch_at_given_dpi_when_no_style_guide(self):
-        assert target_border_px(None, dpi=300) == 150
+    def test_defaults_to_an_eighth_inch_at_given_dpi_when_no_style_guide(self):
+        # 0.125in is a deterministic safety margin, not a decorative border —
+        # small enough to be visually negligible but enough to reliably absorb
+        # the model's minor overdraw instead of content bleeding off the edge.
+        assert target_border_px(None, dpi=300) == 38
 
     def test_scales_with_style_guide_margin(self):
         sg = StyleGuide(margin_in=0.25)

@@ -9,7 +9,12 @@ from app.models import StyleGuide
 
 DEFAULT_TRIM_WIDTH_IN = 8.5
 DEFAULT_TRIM_HEIGHT_IN = 11.0
-DEFAULT_MARGIN_IN = 0.5
+# A deterministic safety margin, not a decorative border: small enough to be
+# visually negligible but enough to reliably absorb the model's minor
+# overdraw instead of content bleeding off the edge (see prompt_builder's
+# UNIVERSAL_POSITIVE containment clause for the non-deterministic half of
+# this fix).
+DEFAULT_MARGIN_IN = 0.125
 DEFAULT_DPI = 300
 
 

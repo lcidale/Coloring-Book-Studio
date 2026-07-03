@@ -116,7 +116,7 @@ function StyleGuideDialog({
     trim_width_in: current?.trim_width_in ?? 8.5,
     trim_height_in: current?.trim_height_in ?? 11,
     bleed_in: current?.bleed_in ?? 0.125,
-    margin_in: current?.margin_in ?? 0.5,
+    margin_in: current?.margin_in ?? 0.125,
     target_dpi: current?.target_dpi ?? 300,
     binding_gutter_in: current?.binding_gutter_in ?? 0,
     binding_edge: current?.binding_edge ?? "left",

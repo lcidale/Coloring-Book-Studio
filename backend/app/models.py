@@ -98,7 +98,8 @@ class StyleGuide(Base):
     trim_width_in: Mapped[float] = mapped_column(Float, default=8.5)
     trim_height_in: Mapped[float] = mapped_column(Float, default=11.0)
     bleed_in: Mapped[float] = mapped_column(Float, default=0.125)
-    margin_in: Mapped[float] = mapped_column(Float, default=0.5)
+    # Deterministic safety margin, not a decorative border — see print_spec.py.
+    margin_in: Mapped[float] = mapped_column(Float, default=0.125)
     target_dpi: Mapped[int] = mapped_column(Integer, default=300)
 
     # Binding clearance: an extra blank strip reserved on just one edge (in
