@@ -65,6 +65,10 @@ _COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
         "prompt_provider": "VARCHAR(50)",
         "prompt_model": "VARCHAR(200)",
     },
+    "style_guides": {
+        "binding_gutter_in": "FLOAT DEFAULT 0.0",
+        "binding_edge": "VARCHAR(10) DEFAULT 'left'",
+    },
 }
 
 

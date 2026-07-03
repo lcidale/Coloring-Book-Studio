@@ -29,6 +29,34 @@ from app.services import storage as _storage
 PT_PER_INCH = 72.0
 
 
+def _content_box_pt(
+    trim_w_in: float,
+    trim_h_in: float,
+    bleed_in: float,
+    margin_in: float,
+    binding_gutter_in: float = 0.0,
+    binding_edge: str = "left",
+) -> tuple[float, float, float, float]:
+    """
+    Compute the content box (x0, y0, width, height) in points, inset from the
+    page edge by bleed + margin on all four sides, plus an extra
+    ``binding_gutter_in`` reserved on just the ``binding_edge`` side for
+    spiral/coil binding clearance. The other three edges are unaffected —
+    full bleed there.
+    """
+    page_w_pt = (trim_w_in + 2 * bleed_in) * PT_PER_INCH
+    page_h_pt = (trim_h_in + 2 * bleed_in) * PT_PER_INCH
+    base_inset = (bleed_in + margin_in) * PT_PER_INCH
+    gutter_pt = binding_gutter_in * PT_PER_INCH
+
+    left = base_inset + (gutter_pt if binding_edge == "left" else 0.0)
+    right = base_inset + (gutter_pt if binding_edge == "right" else 0.0)
+    top = base_inset + (gutter_pt if binding_edge == "top" else 0.0)
+    bottom = base_inset + (gutter_pt if binding_edge == "bottom" else 0.0)
+
+    return left, top, page_w_pt - left - right, page_h_pt - top - bottom
+
+
 def _svg_to_pdf_doc(svg: str) -> "fitz.Document":
     """Convert an SVG string to an in-memory single-page vector PDF document."""
     src = fitz.open(stream=svg.encode("utf-8"), filetype="svg")
@@ -98,15 +126,18 @@ def export_book_pdf(
     trim_h = sg.trim_height_in if sg else 11.0
     bleed = sg.bleed_in if sg else 0.125
     margin = sg.margin_in if sg else 0.5
+    binding_gutter = sg.binding_gutter_in if sg else 0.0
+    binding_edge = sg.binding_edge if sg else "left"
 
     page_w_pt = (trim_w + 2 * bleed) * PT_PER_INCH
     page_h_pt = (trim_h + 2 * bleed) * PT_PER_INCH
 
     # Content box: inside the margin (margins measured from the trim edge, which
-    # sits ``bleed`` in from the page edge).
-    inset_pt = (bleed + margin) * PT_PER_INCH
-    content_w = page_w_pt - 2 * inset_pt
-    content_h = page_h_pt - 2 * inset_pt
+    # sits ``bleed`` in from the page edge), plus a binding gutter reserved on
+    # just one edge — the other three stay full bleed.
+    box_x0, box_y0, content_w, content_h = _content_box_pt(
+        trim_w, trim_h, bleed, margin, binding_gutter, binding_edge
+    )
 
     # Physical height of the content box in points — used to scale text point
     # sizes into the line-art SVG's coordinate space.
@@ -137,8 +168,8 @@ def export_book_pdf(
             scale = min(content_w / src_rect.width, content_h / src_rect.height)
             draw_w = src_rect.width * scale
             draw_h = src_rect.height * scale
-            x0 = inset_pt + (content_w - draw_w) / 2
-            y0 = inset_pt + (content_h - draw_h) / 2
+            x0 = box_x0 + (content_w - draw_w) / 2
+            y0 = box_y0 + (content_h - draw_h) / 2
             target = fitz.Rect(x0, y0, x0 + draw_w, y0 + draw_h)
 
             new_page = out.new_page(width=page_w_pt, height=page_h_pt)

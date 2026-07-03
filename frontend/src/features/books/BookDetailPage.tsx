@@ -118,6 +118,8 @@ function StyleGuideDialog({
     bleed_in: current?.bleed_in ?? 0.125,
     margin_in: current?.margin_in ?? 0.5,
     target_dpi: current?.target_dpi ?? 300,
+    binding_gutter_in: current?.binding_gutter_in ?? 0,
+    binding_edge: current?.binding_edge ?? "left",
   })
 
   React.useEffect(() => {
@@ -135,6 +137,8 @@ function StyleGuideDialog({
         bleed_in: current.bleed_in,
         margin_in: current.margin_in,
         target_dpi: current.target_dpi,
+        binding_gutter_in: current.binding_gutter_in,
+        binding_edge: current.binding_edge,
       })
     }
   }, [current])
@@ -184,6 +188,27 @@ function StyleGuideDialog({
     )
   }
 
+  function selectField(label: string, key: keyof StyleGuide, options: string[]) {
+    return (
+      <div>
+        <label className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
+          {label}
+        </label>
+        <select
+          value={String(form[key] ?? options[0])}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--brand-accent)] focus:ring-2 focus:ring-[var(--brand-accent)]/20"
+        >
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt.charAt(0).toUpperCase() + opt.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="sm:max-w-lg">
@@ -220,6 +245,20 @@ function StyleGuideDialog({
                   {numField("Bleed (in)", "bleed_in", 0.01)}
                   {numField("Margin (in)", "margin_in", 0.01)}
                   {numField("Target DPI", "target_dpi", 50)}
+                </div>
+              </div>
+
+              <div className="border-t border-[var(--border)] pt-3">
+                <p className="mb-1 text-[11.5px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  Binding Gutter
+                </p>
+                <p className="mb-2 text-[11px] text-[var(--muted-foreground)]">
+                  Extra blank space reserved on one edge only for spiral/coil
+                  binding clearance. The other three edges stay full bleed.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {numField("Gutter (in)", "binding_gutter_in", 0.05)}
+                  {selectField("Binding Edge", "binding_edge", ["left", "right", "top", "bottom"])}
                 </div>
               </div>
             </div>

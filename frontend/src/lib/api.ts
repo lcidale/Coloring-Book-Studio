@@ -55,6 +55,8 @@ export interface StyleGuide {
   bleed_in: number
   margin_in: number
   target_dpi: number
+  binding_gutter_in: number
+  binding_edge: string
 }
 
 export interface Book {

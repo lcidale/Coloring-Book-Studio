@@ -101,6 +101,12 @@ class StyleGuide(Base):
     margin_in: Mapped[float] = mapped_column(Float, default=0.5)
     target_dpi: Mapped[int] = mapped_column(Integer, default=300)
 
+    # Binding clearance: an extra blank strip reserved on just one edge (in
+    # addition to margin_in) so spiral/coil punches don't go through the art.
+    # The opposite three edges are unaffected — full bleed there.
+    binding_gutter_in: Mapped[float] = mapped_column(Float, default=0.0)
+    binding_edge: Mapped[str] = mapped_column(String(10), default="left")  # left | right | top | bottom
+
     # Raw JSON for anything extra
     extra: Mapped[dict] = mapped_column(JSON, default=dict)
 

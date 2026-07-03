@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import fitz  # PyMuPDF
 
-from app.services.pdf_export import export_book_pdf
+from app.services.pdf_export import PT_PER_INCH, _content_box_pt, export_book_pdf
 from app.services.vectorize import trace_to_svg
 from tests.conftest import make_pure_bw_png
 import app.services.storage as _storage_mod
@@ -31,6 +31,8 @@ def _make_style_guide(
     trim_h: float = 11.0,
     bleed: float = 0.125,
     margin: float = 0.5,
+    binding_gutter: float = 0.0,
+    binding_edge: str = "left",
 ) -> MagicMock:
     sg = MagicMock()
     sg.trim_width_in = trim_w
@@ -38,6 +40,8 @@ def _make_style_guide(
     sg.bleed_in = bleed
     sg.margin_in = margin
     sg.target_dpi = 300
+    sg.binding_gutter_in = binding_gutter
+    sg.binding_edge = binding_edge
     return sg
 
 
@@ -244,3 +248,44 @@ class TestExportBookPdf:
         doc = fitz.open(str(out))
         assert doc.page_count == 1
         doc.close()
+
+
+# ---------------------------------------------------------------------------
+# _content_box_pt() — binding gutter placement
+# ---------------------------------------------------------------------------
+
+class TestContentBoxPt:
+    def test_no_gutter_matches_uniform_margin_inset(self):
+        """With binding_gutter_in=0, the content box is the plain
+        bleed+margin inset on all four sides (pre-gutter behavior)."""
+        x0, y0, w, h = _content_box_pt(8.5, 11.0, 0.125, 0.5, 0.0, "left")
+        inset = (0.125 + 0.5) * PT_PER_INCH
+        page_w = (8.5 + 2 * 0.125) * PT_PER_INCH
+        page_h = (11.0 + 2 * 0.125) * PT_PER_INCH
+        assert x0 == pytest.approx(inset)
+        assert y0 == pytest.approx(inset)
+        assert w == pytest.approx(page_w - 2 * inset)
+        assert h == pytest.approx(page_h - 2 * inset)
+
+    def test_left_gutter_shifts_content_right_without_growing_page(self):
+        """A left-edge gutter reserves extra space only on the left — the
+        right/top/bottom edges are untouched (full bleed there), and the
+        overall page size (computed separately from trim+bleed) doesn't change."""
+        base_x0, base_y0, base_w, base_h = _content_box_pt(8.5, 11.0, 0.125, 0.0, 0.0, "left")
+        gx0, gy0, gw, gh = _content_box_pt(8.5, 11.0, 0.125, 0.0, 0.5, "left")
+
+        gutter_pt = 0.5 * PT_PER_INCH
+        assert gx0 == pytest.approx(base_x0 + gutter_pt)
+        assert gw == pytest.approx(base_w - gutter_pt)
+        assert gy0 == pytest.approx(base_y0)
+        assert gh == pytest.approx(base_h)
+
+    def test_top_gutter_shifts_content_down(self):
+        base_x0, base_y0, base_w, base_h = _content_box_pt(8.5, 11.0, 0.125, 0.0, 0.0, "top")
+        gx0, gy0, gw, gh = _content_box_pt(8.5, 11.0, 0.125, 0.0, 0.5, "top")
+
+        gutter_pt = 0.5 * PT_PER_INCH
+        assert gy0 == pytest.approx(base_y0 + gutter_pt)
+        assert gh == pytest.approx(base_h - gutter_pt)
+        assert gx0 == pytest.approx(base_x0)
+        assert gw == pytest.approx(base_w)

@@ -29,6 +29,8 @@ class StyleGuideIn(BaseModel):
     bleed_in: float = 0.125
     margin_in: float = 0.5
     target_dpi: int = 300
+    binding_gutter_in: float = 0.0
+    binding_edge: str = "left"
 
 
 class BookIn(BaseModel):
@@ -88,6 +90,8 @@ def _sg_dict(sg: StyleGuide) -> dict:
         "bleed_in": sg.bleed_in,
         "margin_in": sg.margin_in,
         "target_dpi": sg.target_dpi,
+        "binding_gutter_in": sg.binding_gutter_in,
+        "binding_edge": sg.binding_edge,
         "updated_at": sg.updated_at.isoformat(),
     }
 
