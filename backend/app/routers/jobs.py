@@ -34,7 +34,8 @@ from app.services.image_gen import generate_line_art
 from app.services.image_proc import analyse, cleanup
 from app.services.print_spec import target_border_px, target_px_dimensions
 from app.services.prompt_builder import build_prompt
-from app.services.vectorize import vectorize_page
+from app.services import storage
+from app.services.vectorize import vectorize_page_by_key
 from app.services.versioning import record_version
 
 STORAGE_DIR = Path(os.getenv("STORAGE_DIR", "storage"))
@@ -186,19 +187,29 @@ async def _generate(
         db=db,  # resolve provider+model from the global AppSettings
         reference_image_key=reference_image_key,
     )
+    # generate_line_art() returns a Path; storage's put_file/exists/etc. all
+    # expect a plain string key (boto3's Key= parameter in particular).
+    rel_path = str(rel_path)
     abs_path = STORAGE_DIR / rel_path
 
     if auto_cleanup:
         cleanup(abs_path, target_dpi=target_dpi, border_px=border_px)
+        # generate_line_art already uploaded the RAW (pre-cleanup) bytes to
+        # storage; under STORAGE_BACKEND=r2 that happens before cleanup ever
+        # touches the file, so without this the cleaned-up version — margin,
+        # despeckle, pure-B&W threshold, DPI stamp — never reaches what's
+        # actually served, no matter what analyse() correctly measures below.
+        storage.put_file(rel_path, abs_path, "image/png")
 
     report = analyse(abs_path, target_dpi=target_dpi)
 
+    # Vectorize (storage-aware: uploads the SVG/preview under STORAGE_BACKEND=r2
+    # instead of leaving them only on local disk)
     svg_rel: str | None = None
     if do_vectorize:
-        svg_abs = abs_path.with_suffix(".svg")
-        preview_abs = abs_path.with_name(abs_path.stem + "_preview.png")
-        vectorize_page(abs_path, svg_abs, preview_png_path=preview_abs)
-        svg_rel = str(svg_abs.relative_to(STORAGE_DIR))
+        svg_rel = str(abs_path.with_suffix(".svg").relative_to(STORAGE_DIR))
+        preview_rel = str(abs_path.with_name(abs_path.stem + "_preview.png").relative_to(STORAGE_DIR))
+        vectorize_page_by_key(rel_path, svg_rel, preview_rel)
 
     record_version(db, page, version_num, rel_path, svg_rel, positive, report)
     page.status = PageStatus.review
