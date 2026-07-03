@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter, Routes, Route } from "react-router-dom"
 import { describe, it, expect, vi, beforeEach } from "vitest"
@@ -40,5 +41,18 @@ describe("BookDetailPage", () => {
   it("shows an Inspiration section", async () => {
     renderPage()
     expect(await screen.findByRole("heading", { name: /inspiration/i })).toBeInTheDocument()
+  })
+
+  it("blurs a focused print-spec number input on wheel, so scrolling the page can't silently change it", async () => {
+    renderPage()
+    const sgBtn = await screen.findByRole("button", { name: /style guide/i })
+    await userEvent.click(sgBtn)
+
+    const bleedInput = await screen.findByLabelText("Bleed (in)")
+    bleedInput.focus()
+    expect(document.activeElement).toBe(bleedInput)
+
+    fireEvent.wheel(bleedInput)
+    expect(document.activeElement).not.toBe(bleedInput)
   })
 })

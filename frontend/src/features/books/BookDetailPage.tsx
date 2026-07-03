@@ -155,12 +155,14 @@ function StyleGuideDialog({
   }
 
   function textField(label: string, key: keyof StyleGuide, placeholder = "") {
+    const id = `sg-${key}`
     return (
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
+        <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
           {label}
         </label>
         <input
+          id={id}
           type="text"
           placeholder={placeholder}
           value={String(form[key] ?? "")}
@@ -172,16 +174,22 @@ function StyleGuideDialog({
   }
 
   function numField(label: string, key: keyof StyleGuide, step = 0.1) {
+    const id = `sg-${key}`
     return (
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
+        <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
           {label}
         </label>
         <input
+          id={id}
           type="number"
           step={step}
           value={String(form[key] ?? "")}
           onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
+          // Scrolling the page while this input happens to be focused would
+          // otherwise silently nudge the value by one step (browser-native
+          // number input behavior) — blur on wheel so scroll always just scrolls.
+          onWheel={(e) => e.currentTarget.blur()}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--brand-accent)] focus:ring-2 focus:ring-[var(--brand-accent)]/20"
         />
       </div>
@@ -189,12 +197,14 @@ function StyleGuideDialog({
   }
 
   function selectField(label: string, key: keyof StyleGuide, options: string[]) {
+    const id = `sg-${key}`
     return (
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
+        <label htmlFor={id} className="mb-1 block text-[12px] font-medium text-[var(--foreground)]">
           {label}
         </label>
         <select
+          id={id}
           value={String(form[key] ?? options[0])}
           onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--brand-accent)] focus:ring-2 focus:ring-[var(--brand-accent)]/20"
