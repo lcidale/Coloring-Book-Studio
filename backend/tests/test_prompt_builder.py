@@ -42,6 +42,16 @@ class TestUniversalConstants:
     def test_positive_mentions_300_dpi(self):
         assert "300" in UNIVERSAL_POSITIVE
 
+    def test_positive_requires_content_fully_contained_in_frame(self):
+        """Full-bleed generation (margin_in=0) means the deterministic
+        crop-to-content-bbox step no longer adds a white cushion — if the AI's
+        own composition draws elements touching its canvas edge, they come out
+        looking cropped/bleeding off the page. The prompt must tell the model
+        to keep everything contained, since post-processing can't fix this."""
+        pos = UNIVERSAL_POSITIVE.lower()
+        assert "bleed" in pos or "run off" in pos or "run past" in pos
+        assert "contained" in pos or "whole" in pos or "complete" in pos
+
     def test_negative_excludes_color(self):
         assert "color" in UNIVERSAL_NEGATIVE.lower() or "colour" in UNIVERSAL_NEGATIVE.lower()
 

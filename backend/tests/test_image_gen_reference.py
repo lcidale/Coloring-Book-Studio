@@ -67,6 +67,55 @@ async def test_generate_gemini_requests_the_correct_aspect_ratio(monkeypatch):
     assert config.image_config.aspect_ratio == "3:4"
 
 
+async def test_generate_gemini_prompt_tells_model_to_keep_content_contained(monkeypatch):
+    """Full-bleed generation (margin_in=0) removed the white-padding cushion
+    that used to hide elements the AI drew too close to its own canvas edge.
+    Since that can no longer be fixed by post-processing, the reinforcement
+    text sent on every Gemini call must ask the model to keep everything
+    inside the frame — regardless of whether the page already has a saved
+    prompt (this reinforcement is appended fresh on every call, unlike
+    UNIVERSAL_POSITIVE which is only baked in when a prompt is first built)."""
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key-for-test")
+
+    from google import genai
+
+    captured = {}
+
+    class FakePart:
+        inline_data = type("Blob", (), {"data": b"\x89PNG\r\n\x1a\n" + b"0" * 8})()
+
+    class FakeContent:
+        parts = [FakePart()]
+
+    class FakeCandidate:
+        content = FakeContent()
+
+    class FakeResponse:
+        candidates = [FakeCandidate()]
+
+    class FakeModels:
+        async def generate_content(self, *, model, contents, config):
+            captured["contents"] = contents
+            return FakeResponse()
+
+    class FakeAio:
+        models = FakeModels()
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            self.aio = FakeAio()
+
+    monkeypatch.setattr(genai, "Client", FakeClient)
+
+    await image_gen._generate_gemini(
+        "a fox", "", width=2550, height=3300, model="gemini-2.5-flash-image"
+    )
+
+    prompt_sent = captured["contents"].lower()
+    assert "bleed" in prompt_sent or "run off" in prompt_sent or "run past" in prompt_sent
+    assert "contained" in prompt_sent or "whole" in prompt_sent or "complete" in prompt_sent
+
+
 async def test_generate_line_art_passes_reference_to_gemini(monkeypatch, tmp_path):
     # storage.get_bytes returns fake reference bytes; capture what _generate_gemini receives
     from app.services import storage

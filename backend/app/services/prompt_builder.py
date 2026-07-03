@@ -15,6 +15,9 @@ UNIVERSAL_POSITIVE = (
     "no fill, no shading, no gradients, no grayscale, no hatching, no stippling, "
     "fully enclosed shapes with clear regions to color, subject isolated on white, "
     "flat vector-style line drawing, even line weight, high contrast, "
+    "the entire composition fully contained within the frame with a small internal "
+    "safety margin — nothing should bleed, run off, or be cropped at the edge of the "
+    "canvas, every design element must appear whole and complete on the page, "
     "printable, ultra high resolution, 300 DPI"
 )
 

@@ -90,7 +90,10 @@ _NEGATIVE_FLOOR = "color, grayscale, shading, gradient, text, watermark, blurry"
 # strong positive constraint appended to the prompt (see _generate_gemini).
 _GEMINI_POSITIVE_CONSTRAINT = (
     "Render as pure black and white line art only: clean crisp black outlines, "
-    "no shading, no grayscale, no color, no fill, on a plain white background."
+    "no shading, no grayscale, no color, no fill, on a plain white background. "
+    "Keep the entire design fully contained within the frame with a small internal "
+    "safety margin — nothing should bleed, run off, or be cropped at the edge of "
+    "the canvas; every element must appear whole and complete on the page."
 )
 
 
