@@ -28,7 +28,7 @@ async def export_pdf(book_id: str, db: AsyncSession = Depends(get_db)):
 
     pages_result = await db.execute(
         select(Page)
-        .options(selectinload(Page.text_layers))
+        .options(selectinload(Page.text_layers), selectinload(Page.versions))
         .where(
             Page.book_id == book_id,
             Page.status.in_([PageStatus.approved, PageStatus.print_ready, PageStatus.exported]),
